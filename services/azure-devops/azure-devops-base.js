@@ -59,7 +59,7 @@ module.exports = class AzureDevOpsBase extends BaseJsonService {
     headers,
     errorMessages
   ) {
-    const builId = await this.getLatestCompletedBuildInfo(
+    const builInfo = await this.getLatestCompletedBuildInfo(
       organization,
       project,
       definitionId,
@@ -68,7 +68,7 @@ module.exports = class AzureDevOpsBase extends BaseJsonService {
       errorMessages
     )
 
-    return builId
+    return builInfo.id
   }
 
   async getLatestCompletedBuildInfo(
