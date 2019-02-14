@@ -33,7 +33,7 @@ const notFound = fs.readFileSync(
 
 const publicConfigSchema = Joi.object({
   bind: {
-    port: Joi.number().port(),
+    port: Joi.string().port(),
     address: Joi.alternatives().try(
       Joi.string()
         .ip()
