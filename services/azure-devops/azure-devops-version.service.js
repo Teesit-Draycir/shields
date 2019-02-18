@@ -42,6 +42,7 @@ module.exports = class AzureDevOpsVersion extends AzureDevOpsBase {
       format:
         '(?:azure-devops|vso)/version/release/([^/]+)/([^/]+)/([^/]+)/([^/]+)',
       capture: ['organization', 'projectId', 'definitionId', 'environmentId'],
+      queryParams: ['withEnvName'],
     }
   }
 
@@ -73,7 +74,10 @@ module.exports = class AzureDevOpsVersion extends AzureDevOpsBase {
     }
   }
 
-  async handle({ organization, projectId, definitionId, environmentId }) {
+  async handle(
+    { organization, projectId, definitionId, environmentId },
+    { withEnvName }
+  ) {
     const headers = getHeaders()
     const errorMessages = {
       404: 'release pipeline not found',
@@ -93,6 +97,9 @@ module.exports = class AzureDevOpsVersion extends AzureDevOpsBase {
       releaseInfo.release.artifacts[0].definitionReference.version.name
     const envName = releaseInfo.releaseEnvironment.name
 
-    return this.constructor.renderVersionBadge({ version, label: envName })
+    if (withEnvName)
+      return this.constructor.renderVersionBadge({ version, label: envName })
+    else
+      return this.constructor.renderVersionBadge({ version, label: 'version' })
   }
 }
