@@ -1,7 +1,7 @@
 'use strict'
 
+const { renderVersionBadge } = require('../version')
 const VisualStudioMarketplaceBase = require('./visual-studio-marketplace-base')
-const { renderVersionBadge } = require('../../lib/version')
 
 module.exports = class VisualStudioMarketplaceVersion extends VisualStudioMarketplaceBase {
   static get category() {
@@ -15,16 +15,6 @@ module.exports = class VisualStudioMarketplaceVersion extends VisualStudioMarket
     }
   }
 
-  static get defaultBadgeData() {
-    return {
-      label: 'version',
-    }
-  }
-
-  static render({ version }) {
-    return renderVersionBadge({ version })
-  }
-
   static get examples() {
     return [
       {
@@ -35,6 +25,16 @@ module.exports = class VisualStudioMarketplaceVersion extends VisualStudioMarket
         keywords: this.keywords,
       },
     ]
+  }
+
+  static get defaultBadgeData() {
+    return {
+      label: 'version',
+    }
+  }
+
+  static render({ version }) {
+    return renderVersionBadge({ version })
   }
 
   transform({ json }) {

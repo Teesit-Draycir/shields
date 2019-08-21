@@ -1,15 +1,15 @@
 'use strict'
 
-const Joi = require('joi')
+const Joi = require('@hapi/joi')
 const parseLinkHeader = require('parse-link-header')
-const { GithubAuthService } = require('./github-auth-service')
-const { renderContributorBadge } = require('../../lib/contributor-count')
+const { renderContributorBadge } = require('../contributor-count')
+const { GithubAuthV3Service } = require('./github-auth-service')
 const { documentation, errorMessagesFor } = require('./github-helpers')
 
 // All we do is check its length.
 const schema = Joi.array().items(Joi.object())
 
-module.exports = class GithubContributors extends GithubAuthService {
+module.exports = class GithubContributors extends GithubAuthV3Service {
   static get category() {
     return 'activity'
   }
@@ -17,7 +17,7 @@ module.exports = class GithubContributors extends GithubAuthService {
   static get route() {
     return {
       base: 'github',
-      pattern: ':which(contributors|contributors-anon)/:user/:repo',
+      pattern: ':variant(contributors|contributors-anon)/:user/:repo',
     }
   }
 
@@ -26,7 +26,7 @@ module.exports = class GithubContributors extends GithubAuthService {
       {
         title: 'GitHub contributors',
         namedParams: {
-          which: 'contributors',
+          variant: 'contributors',
           user: 'cdnjs',
           repo: 'cdnjs',
         },
@@ -44,8 +44,8 @@ module.exports = class GithubContributors extends GithubAuthService {
     return renderContributorBadge({ contributorCount })
   }
 
-  async handle({ which, user, repo }) {
-    const isAnon = which === 'contributors-anon'
+  async handle({ variant, user, repo }) {
+    const isAnon = variant === 'contributors-anon'
 
     const { res, buffer } = await this._request({
       url: `/repos/${user}/${repo}/contributors`,

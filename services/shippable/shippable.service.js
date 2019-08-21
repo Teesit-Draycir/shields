@@ -1,7 +1,7 @@
 'use strict'
 
-const Joi = require('joi')
-const { renderBuildStatusBadge } = require('../../lib/build-status')
+const Joi = require('@hapi/joi')
+const { renderBuildStatusBadge } = require('../build-status')
 const { BaseJsonService, NotFound } = require('..')
 
 // source: https://github.com/badges/shields/pull/1362#discussion_r161693830
@@ -30,15 +30,6 @@ const schema = Joi.array()
   .required()
 
 module.exports = class Shippable extends BaseJsonService {
-  async fetch({ projectId }) {
-    const url = `https://api.shippable.com/projects/${projectId}/branchRunStatus`
-    return this._requestJson({ schema, url })
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'shippable' }
-  }
-
   static get category() {
     return 'build'
   }
@@ -70,8 +61,17 @@ module.exports = class Shippable extends BaseJsonService {
     ]
   }
 
+  static get defaultBadgeData() {
+    return { label: 'shippable' }
+  }
+
   static render({ code }) {
     return renderBuildStatusBadge({ label: 'build', status: statusCodes[code] })
+  }
+
+  async fetch({ projectId }) {
+    const url = `https://api.shippable.com/projects/${projectId}/branchRunStatus`
+    return this._requestJson({ schema, url })
   }
 
   async handle({ projectId, branch = 'master' }) {

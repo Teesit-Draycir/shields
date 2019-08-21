@@ -1,11 +1,8 @@
 'use strict'
 
-const Joi = require('joi')
-const { metric, addv, maybePluralize } = require('../../lib/text-formatters')
-const {
-  downloadCount,
-  version: versionColor,
-} = require('../../lib/color-formatters')
+const Joi = require('@hapi/joi')
+const { metric, addv, maybePluralize } = require('../text-formatters')
+const { downloadCount, version: versionColor } = require('../color-formatters')
 const { BaseJsonService } = require('..')
 
 const hexSchema = Joi.object({
@@ -30,43 +27,19 @@ const hexSchema = Joi.object({
 }).required()
 
 class BaseHexPmService extends BaseJsonService {
+  static get defaultBadgeData() {
+    return { label: 'hex' }
+  }
+
   async fetch({ packageName }) {
     return this._requestJson({
       schema: hexSchema,
       url: `https://hex.pm/api/packages/${packageName}`,
     })
   }
-
-  static get defaultBadgeData() {
-    return { label: 'hex' }
-  }
 }
 
 class HexPmLicense extends BaseHexPmService {
-  static render({ licenses }) {
-    if (licenses.length === 0) {
-      return {
-        label: 'license',
-        message: 'Unknown',
-        color: 'lightgrey',
-      }
-    }
-    return {
-      label: maybePluralize('license', licenses),
-      message: licenses.join(', '),
-      color: 'blue',
-    }
-  }
-
-  async handle({ packageName }) {
-    const json = await this.fetch({ packageName })
-    return this.constructor.render({ licenses: json.meta.licenses })
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'license' }
-  }
-
   static get category() {
     return 'license'
   }
@@ -87,18 +60,33 @@ class HexPmLicense extends BaseHexPmService {
       },
     ]
   }
-}
 
-class HexPmVersion extends BaseHexPmService {
-  static render({ version }) {
-    return { message: addv(version), color: versionColor(version) }
+  static get defaultBadgeData() {
+    return { label: 'license' }
+  }
+
+  static render({ licenses }) {
+    if (licenses.length === 0) {
+      return {
+        label: 'license',
+        message: 'Unknown',
+        color: 'lightgrey',
+      }
+    }
+    return {
+      label: maybePluralize('license', licenses),
+      message: licenses.join(', '),
+      color: 'blue',
+    }
   }
 
   async handle({ packageName }) {
     const json = await this.fetch({ packageName })
-    return this.constructor.render({ version: json.releases[0].version })
+    return this.constructor.render({ licenses: json.meta.licenses })
   }
+}
 
+class HexPmVersion extends BaseHexPmService {
   static get category() {
     return 'version'
   }
@@ -119,39 +107,39 @@ class HexPmVersion extends BaseHexPmService {
       },
     ]
   }
+
+  static render({ version }) {
+    return { message: addv(version), color: versionColor(version) }
+  }
+
+  async handle({ packageName }) {
+    const json = await this.fetch({ packageName })
+    return this.constructor.render({ version: json.releases[0].version })
+  }
 }
 
 function DownloadsForInterval(interval) {
-  const { base, messageSuffix } = {
+  const { base, messageSuffix, name } = {
     day: {
       base: 'hexpm/dd',
       messageSuffix: '/day',
+      name: 'HexPmDownloadsDay',
     },
     week: {
       base: 'hexpm/dw',
       messageSuffix: '/week',
+      name: 'HexPmDownloadsWeek',
     },
     all: {
       base: 'hexpm/dt',
       messageSuffix: '',
+      name: 'HexPmDownloadsTotal',
     },
   }[interval]
 
   return class HexPmDownloads extends BaseHexPmService {
-    static render({ downloads }) {
-      return {
-        message: `${metric(downloads)}${messageSuffix}`,
-        color: downloadCount(downloads),
-      }
-    }
-
-    async handle({ packageName }) {
-      const json = await this.fetch({ packageName })
-      return this.constructor.render({ downloads: json.downloads[interval] })
-    }
-
-    static get defaultBadgeData() {
-      return { label: 'downloads' }
+    static get name() {
+      return name
     }
 
     static get category() {
@@ -173,6 +161,22 @@ function DownloadsForInterval(interval) {
           staticPreview: this.render({ downloads: 85000 }),
         },
       ]
+    }
+
+    static get defaultBadgeData() {
+      return { label: 'downloads' }
+    }
+
+    static render({ downloads }) {
+      return {
+        message: `${metric(downloads)}${messageSuffix}`,
+        color: downloadCount(downloads),
+      }
+    }
+
+    async handle({ packageName }) {
+      const json = await this.fetch({ packageName })
+      return this.constructor.render({ downloads: json.downloads[interval] })
     }
   }
 }

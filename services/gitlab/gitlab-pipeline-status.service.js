@@ -1,12 +1,9 @@
 'use strict'
 
-const Joi = require('joi')
-const {
-  isBuildStatus,
-  renderBuildStatusBadge,
-} = require('../../lib/build-status')
-const { BaseSvgScrapingService, NotFound } = require('..')
+const Joi = require('@hapi/joi')
+const { isBuildStatus, renderBuildStatusBadge } = require('../build-status')
 const { optionalUrl } = require('../validators')
+const { BaseSvgScrapingService, NotFound } = require('..')
 
 const badgeSchema = Joi.object({
   message: Joi.alternatives()
@@ -27,7 +24,7 @@ module.exports = class GitlabPipelineStatus extends BaseSvgScrapingService {
     return {
       base: 'gitlab/pipeline',
       pattern: ':user/:repo/:branch*',
-      queryParams: ['gitlab_url'],
+      queryParamSchema,
     }
   }
 
@@ -63,10 +60,10 @@ module.exports = class GitlabPipelineStatus extends BaseSvgScrapingService {
     return renderBuildStatusBadge({ status })
   }
 
-  async handle({ user, repo, branch = 'master' }, queryParams) {
-    const {
-      gitlab_url: baseUrl = 'https://gitlab.com',
-    } = this.constructor._validateQueryParams(queryParams, queryParamSchema)
+  async handle(
+    { user, repo, branch = 'master' },
+    { gitlab_url: baseUrl = 'https://gitlab.com' }
+  ) {
     const { message: status } = await this._requestSvg({
       schema: badgeSchema,
       url: `${baseUrl}/${user}/${repo}/badges/${branch}/pipeline.svg`,

@@ -1,10 +1,10 @@
 'use strict'
 
-const Joi = require('joi')
-const EclipseMarketplaceBase = require('./eclipse-marketplace-base')
-const { formatDate } = require('../../lib/text-formatters')
-const { age: ageColor } = require('../../lib/color-formatters')
+const Joi = require('@hapi/joi')
+const { formatDate } = require('../text-formatters')
+const { age: ageColor } = require('../color-formatters')
 const { nonNegativeInteger } = require('../validators')
+const EclipseMarketplaceBase = require('./eclipse-marketplace-base')
 
 const updateResponseSchema = Joi.object({
   marketplace: Joi.object({
@@ -19,8 +19,8 @@ module.exports = class EclipseMarketplaceUpdate extends EclipseMarketplaceBase {
     return 'activity'
   }
 
-  static get defaultBadgeData() {
-    return { label: 'updated' }
+  static get route() {
+    return this.buildRoute('eclipse-marketplace/last-update')
   }
 
   static get examples() {
@@ -33,8 +33,8 @@ module.exports = class EclipseMarketplaceUpdate extends EclipseMarketplaceBase {
     ]
   }
 
-  static get route() {
-    return this.buildRoute('eclipse-marketplace/last-update')
+  static get defaultBadgeData() {
+    return { label: 'updated' }
   }
 
   static render({ date }) {

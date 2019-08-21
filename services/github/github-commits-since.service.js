@@ -1,22 +1,15 @@
 'use strict'
 
-const LegacyService = require('../legacy-service')
-const {
-  makeBadgeData: getBadgeData,
-  makeLabel: getLabel,
-} = require('../../lib/badge-data')
-const { makeLogo: getLogo } = require('../../lib/logos')
-const { documentation } = require('./github-helpers')
+const Joi = require('@hapi/joi')
+const { metric } = require('../text-formatters')
+const { nonNegativeInteger } = require('../validators')
+const { GithubAuthV3Service } = require('./github-auth-service')
+const { fetchLatestRelease } = require('./github-common-fetch')
+const { documentation, errorMessagesFor } = require('./github-helpers')
 
-const keywords = ['GitHub', 'commit']
+const schema = Joi.object({ ahead_by: nonNegativeInteger }).required()
 
-// This legacy service should be rewritten to use e.g. BaseJsonService.
-//
-// Tips for rewriting:
-// https://github.com/badges/shields/blob/master/doc/rewriting-services.md
-//
-// Do not base new services on this code.
-module.exports = class GithubCommitsSince extends LegacyService {
+module.exports = class GithubCommitsSince extends GithubAuthV3Service {
   static get category() {
     return 'activity'
   }
@@ -24,100 +17,101 @@ module.exports = class GithubCommitsSince extends LegacyService {
   static get route() {
     return {
       base: 'github/commits-since',
-      pattern: ':user/:repo/:version',
+      pattern: ':user/:repo/:version/:branch*',
     }
   }
 
   static get examples() {
     return [
       {
-        title: 'GitHub commits',
+        title: 'GitHub commits since tagged version',
         namedParams: {
           user: 'SubtitleEdit',
           repo: 'subtitleedit',
           version: '3.4.7',
         },
-        staticPreview: {
-          label: 'commits since 3.4.7',
-          message: '4225',
-          color: 'blue',
-        },
-        keywords,
+        staticPreview: this.render({
+          version: '3.4.7',
+          commitCount: 4225,
+        }),
         documentation,
       },
       {
-        title: 'GitHub commits (since latest release)',
+        title: 'GitHub commits since tagged version (branch)',
+        namedParams: {
+          user: 'SubtitleEdit',
+          repo: 'subtitleedit',
+          version: '3.4.7',
+          branch: 'master',
+        },
+        staticPreview: this.render({
+          version: '3.4.7',
+          commitCount: 4225,
+        }),
+        documentation,
+      },
+      {
+        title: 'GitHub commits since latest release',
         namedParams: {
           user: 'SubtitleEdit',
           repo: 'subtitleedit',
           version: 'latest',
         },
-        staticPreview: {
-          label: 'commits since 3.5.7',
-          message: '157',
-          color: 'blue',
+        staticPreview: this.render({
+          version: '3.5.7',
+          commitCount: 157,
+        }),
+        documentation,
+      },
+      {
+        title: 'GitHub commits since latest release (branch)',
+        namedParams: {
+          user: 'SubtitleEdit',
+          repo: 'subtitleedit',
+          version: 'latest',
+          branch: 'master',
         },
-        keywords,
+        staticPreview: this.render({
+          version: '3.5.7',
+          commitCount: 157,
+        }),
         documentation,
       },
     ]
   }
 
-  static registerLegacyRouteHandler({ camp, cache, githubApiProvider }) {
-    camp.route(
-      /^\/github\/commits-since\/([^/]+)\/([^/]+)\/([^/]+)\.(svg|png|gif|jpg|json)$/,
-      cache((data, match, sendBadge, request) => {
-        const user = match[1] // eg, SubtitleEdit
-        const repo = match[2] // eg, subtitleedit
-        const version = match[3] // eg, 3.4.7 or latest
-        const format = match[4]
-        const badgeData = getBadgeData(`commits since ${version}`, data)
+  static get defaultBadgeData() {
+    return {
+      label: 'github',
+      namedLogo: 'github',
+    }
+  }
 
-        function setCommitsSinceBadge(user, repo, version) {
-          const apiUrl = `/repos/${user}/${repo}/compare/${version}...master`
-          if (badgeData.template === 'social') {
-            badgeData.logo = getLogo('github', data)
-          }
-          githubApiProvider.request(request, apiUrl, {}, (err, res, buffer) => {
-            if (err != null) {
-              badgeData.text[1] = 'inaccessible'
-              sendBadge(format, badgeData)
-              return
-            }
+  static render({ version, commitCount }) {
+    return {
+      label: `commits since ${version}`,
+      message: metric(commitCount),
+      color: 'blue',
+    }
+  }
 
-            try {
-              const result = JSON.parse(buffer)
-              badgeData.text[1] = result.ahead_by
-              badgeData.colorscheme = 'blue'
-              badgeData.text[0] = getLabel(`commits since ${version}`, data)
-              sendBadge(format, badgeData)
-            } catch (e) {
-              badgeData.text[1] = 'invalid'
-              sendBadge(format, badgeData)
-            }
-          })
-        }
+  async handle({ user, repo, version, branch }) {
+    if (version === 'latest') {
+      ;({ tag_name: version } = await fetchLatestRelease(this, {
+        user,
+        repo,
+      }))
+    }
 
-        if (version === 'latest') {
-          const url = `/repos/${user}/${repo}/releases/latest`
-          githubApiProvider.request(request, url, {}, (err, res, buffer) => {
-            if (err != null) {
-              badgeData.text[1] = 'inaccessible'
-              sendBadge(format, badgeData)
-              return
-            }
-            try {
-              const data = JSON.parse(buffer)
-              setCommitsSinceBadge(user, repo, data.tag_name)
-            } catch (e) {
-              badgeData.text[1] = 'invalid'
-              sendBadge(format, badgeData)
-            }
-          })
-        } else {
-          setCommitsSinceBadge(user, repo, version)
-        }
-      })
-    )
+    const notFoundMessage = branch
+      ? 'repo, branch or version not found'
+      : 'repo or version not found'
+    const { ahead_by: commitCount } = await this._requestJson({
+      schema,
+      url: `/repos/${user}/${repo}/compare/${version}...${branch || 'master'}`,
+      errorMessages: errorMessagesFor(notFoundMessage),
+    })
+
+    return this.constructor.render({ version, commitCount })
   }
 }

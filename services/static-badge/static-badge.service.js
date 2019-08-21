@@ -1,16 +1,17 @@
 'use strict'
 
-const { BaseStaticService } = require('..')
 const { escapeFormat } = require('../../core/badge-urls/path-helpers')
+const { BaseStaticService } = require('..')
 
 module.exports = class StaticBadge extends BaseStaticService {
   static get category() {
-    return 'other'
+    return 'static'
   }
 
   static get route() {
     return {
-      format: '(?::|badge/)((?:[^-]|--)*?)-?((?:[^-]|--)*)-((?:[^-]|--)+)',
+      base: '',
+      format: '(?::|badge/)((?:[^-]|--)*?)-?((?:[^-]|--)*)-((?:[^-.]|--)+)',
       capture: ['label', 'message', 'color'],
     }
   }

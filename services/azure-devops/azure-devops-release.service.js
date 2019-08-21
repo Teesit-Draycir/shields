@@ -1,8 +1,8 @@
 'use strict'
 
-const { renderBuildStatusBadge } = require('../../lib/build-status')
-const { BaseSvgScrapingService } = require('..')
+const { renderBuildStatusBadge } = require('../build-status')
 const { keywords, fetch } = require('./azure-devops-helpers')
+const { BaseSvgScrapingService } = require('..')
 
 const documentation = `
 <p>
@@ -29,9 +29,8 @@ module.exports = class AzureDevOpsRelease extends BaseSvgScrapingService {
 
   static get route() {
     return {
-      base: '',
-      format: '(?:azure-devops|vso)/release/([^/]+)/([^/]+)/([^/]+)/([^/]+)',
-      capture: ['organization', 'projectId', 'definitionId', 'environmentId'],
+      base: 'azure-devops/release',
+      pattern: ':organization/:projectId/:definitionId/:environmentId',
     }
   }
 
@@ -39,8 +38,6 @@ module.exports = class AzureDevOpsRelease extends BaseSvgScrapingService {
     return [
       {
         title: 'Azure DevOps releases',
-        pattern:
-          'azure-devops/release/:organization/:projectId/:definitionId/:environmentId',
         namedParams: {
           organization: 'totodem',
           projectId: '8cf3ec0e-d0c2-4fcd-8206-ad204f254a96',

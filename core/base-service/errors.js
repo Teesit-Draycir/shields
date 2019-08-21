@@ -34,6 +34,7 @@ class NotFound extends ShieldsRuntimeError {
         ? 'Not Found'
         : `Not Found: ${prettyMessage}`
     super(props, message)
+    this.response = props.response
   }
 }
 
@@ -50,6 +51,7 @@ class InvalidResponse extends ShieldsRuntimeError {
       ? `Invalid Response: ${props.underlyingError.message}`
       : 'Invalid Response'
     super(props, message)
+    this.response = props.response
   }
 }
 
@@ -66,6 +68,24 @@ class Inaccessible extends ShieldsRuntimeError {
       ? `Inaccessible: ${props.underlyingError.message}`
       : 'Inaccessible'
     super(props, message)
+    this.response = props.response
+  }
+}
+
+class ImproperlyConfigured extends ShieldsRuntimeError {
+  get name() {
+    return 'ImproperlyConfigured'
+  }
+  get defaultPrettyMessage() {
+    return 'improperly configured'
+  }
+
+  constructor(props = {}) {
+    const message = props.underlyingError
+      ? `ImproperlyConfigured: ${props.underlyingError.message}`
+      : 'ImproperlyConfigured'
+    super(props, message)
+    this.response = props.response
   }
 }
 
@@ -82,6 +102,7 @@ class InvalidParameter extends ShieldsRuntimeError {
       ? `Invalid Parameter: ${props.underlyingError.message}`
       : 'Invalid Parameter'
     super(props, message)
+    this.response = props.response
   }
 }
 
@@ -102,6 +123,7 @@ class Deprecated extends ShieldsRuntimeError {
 module.exports = {
   ShieldsRuntimeError,
   NotFound,
+  ImproperlyConfigured,
   InvalidResponse,
   Inaccessible,
   InvalidParameter,

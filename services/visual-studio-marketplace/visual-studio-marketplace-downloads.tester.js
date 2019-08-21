@@ -1,6 +1,5 @@
 'use strict'
 
-const Joi = require('joi')
 const t = (module.exports = require('../tester').createServiceTester())
 const { isMetric } = require('../test-validators')
 
@@ -30,61 +29,49 @@ const mockResponse = {
   ],
 }
 
-t.create('live: installs')
+t.create('installs')
   .get('/visual-studio-marketplace/i/ritwickdey.LiveServer.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'installs',
-      value: isMetric,
-    })
-  )
+  .expectBadge({
+    label: 'installs',
+    message: isMetric,
+  })
 
-t.create('live: downloads')
+t.create('downloads')
   .get('/visual-studio-marketplace/d/ritwickdey.LiveServer.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'downloads',
-      value: isMetric,
-    })
-  )
+  .expectBadge({
+    label: 'downloads',
+    message: isMetric,
+  })
 
-t.create('live: invalid extension id')
+t.create('invalid extension id')
   .get('/visual-studio-marketplace/d/badges-shields.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'vs marketplace',
-      value: 'invalid extension id',
-    })
-  )
+  .expectBadge({
+    label: 'vs marketplace',
+    message: 'invalid extension id',
+  })
 
-t.create('live: non existent extension')
+t.create('non existent extension')
   .get('/visual-studio-marketplace/d/badges.shields-io-fake.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'vs marketplace',
-      value: 'extension not found',
-    })
-  )
+  .expectBadge({
+    label: 'vs marketplace',
+    message: 'extension not found',
+  })
 
 t.create('installs')
-  .get(
-    '/visual-studio-marketplace/i/swellaby.rust-pack.json?style=_shields_test'
-  )
+  .get('/visual-studio-marketplace/i/swellaby.rust-pack.json')
   .intercept(nock =>
     nock('https://marketplace.visualstudio.com/_apis/public/gallery/')
       .post(`/extensionquery/`)
       .reply(200, mockResponse)
   )
-  .expectJSON({
-    name: 'installs',
-    value: '3',
+  .expectBadge({
+    label: 'installs',
+    message: '3',
     color: 'yellow',
   })
 
 t.create('zero installs')
-  .get(
-    '/visual-studio-marketplace/i/swellaby.rust-pack.json?style=_shields_test'
-  )
+  .get('/visual-studio-marketplace/i/swellaby.rust-pack.json')
   .intercept(nock =>
     nock('https://marketplace.visualstudio.com/_apis/public/gallery/')
       .post(`/extensionquery/`)
@@ -105,41 +92,35 @@ t.create('zero installs')
         ],
       })
   )
-  .expectJSON({
-    name: 'installs',
-    value: '0',
+  .expectBadge({
+    label: 'installs',
+    message: '0',
     color: 'red',
   })
 
 t.create('downloads')
-  .get(
-    '/visual-studio-marketplace/d/swellaby.rust-pack.json?style=_shields_test'
-  )
+  .get('/visual-studio-marketplace/d/swellaby.rust-pack.json')
   .intercept(nock =>
     nock('https://marketplace.visualstudio.com/_apis/public/gallery/')
       .post(`/extensionquery/`)
       .reply(200, mockResponse)
   )
-  .expectJSON({
-    name: 'downloads',
-    value: '10',
+  .expectBadge({
+    label: 'downloads',
+    message: '10',
     color: 'yellowgreen',
   })
 
-t.create('live: installs (legacy)')
+t.create('installs (legacy)')
   .get('/vscode-marketplace/i/ritwickdey.LiveServer.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'installs',
-      value: isMetric,
-    })
-  )
+  .expectBadge({
+    label: 'installs',
+    message: isMetric,
+  })
 
-t.create('live: downloads (legacy)')
+t.create('downloads (legacy)')
   .get('/vscode-marketplace/d/ritwickdey.LiveServer.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'downloads',
-      value: isMetric,
-    })
-  )
+  .expectBadge({
+    label: 'downloads',
+    message: isMetric,
+  })

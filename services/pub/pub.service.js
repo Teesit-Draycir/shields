@@ -1,9 +1,8 @@
 'use strict'
 
-const Joi = require('joi')
+const Joi = require('@hapi/joi')
+const { latest, renderVersionBadge } = require('../version')
 const { BaseJsonService } = require('..')
-const { renderVersionBadge } = require('../../lib/version')
-const { latest: latestVersion } = require('../../lib/version')
 
 const schema = Joi.object({
   versions: Joi.array()
@@ -19,12 +18,8 @@ module.exports = class PubVersion extends BaseJsonService {
   static get route() {
     return {
       base: 'pub',
-      pattern: ':which(v|vpre)/:packageName',
+      pattern: ':variant(v|vpre)/:packageName',
     }
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'pub' }
   }
 
   static get examples() {
@@ -46,6 +41,10 @@ module.exports = class PubVersion extends BaseJsonService {
     ]
   }
 
+  static get defaultBadgeData() {
+    return { label: 'pub' }
+  }
+
   async fetch({ packageName }) {
     return this._requestJson({
       schema,
@@ -53,11 +52,11 @@ module.exports = class PubVersion extends BaseJsonService {
     })
   }
 
-  async handle({ which, packageName }) {
+  async handle({ variant, packageName }) {
     const data = await this.fetch({ packageName })
-    const includePre = which === 'vpre'
+    const includePre = variant === 'vpre'
     const versions = data.versions
-    const version = latestVersion(versions, { pre: includePre })
+    const version = latest(versions, { pre: includePre })
     return renderVersionBadge({ version })
   }
 }

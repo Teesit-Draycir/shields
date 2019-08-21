@@ -1,13 +1,13 @@
 'use strict'
 
-const getURL = '/https/example.com/example.json.json?style=_shields_test'
+const getURL = '/https/example.com/example.json.json'
 const apiURL = 'http://online.swagger.io'
 const apiGetURL = '/validator/debug'
 const apiGetQueryParams = { url: 'https://example.com/example.json' }
 
 const t = (module.exports = require('../tester').createServiceTester())
 
-t.create('Valid (mocked)')
+t.create('Valid')
   .get(getURL)
   .intercept(nock =>
     nock(apiURL)
@@ -15,13 +15,13 @@ t.create('Valid (mocked)')
       .query(apiGetQueryParams)
       .reply(200, {})
   )
-  .expectJSON({
-    name: 'swagger',
-    value: 'valid',
+  .expectBadge({
+    label: 'swagger',
+    message: 'valid',
     color: 'brightgreen',
   })
 
-t.create('Invalid (mocked)')
+t.create('Invalid')
   .get(getURL)
   .intercept(nock =>
     nock(apiURL)
@@ -36,8 +36,8 @@ t.create('Invalid (mocked)')
         ],
       })
   )
-  .expectJSON({
-    name: 'swagger',
-    value: 'invalid',
+  .expectBadge({
+    label: 'swagger',
+    message: 'invalid',
     color: 'red',
   })

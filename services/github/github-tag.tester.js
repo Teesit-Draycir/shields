@@ -1,50 +1,52 @@
 'use strict'
 
-const Joi = require('joi')
+const Joi = require('@hapi/joi')
+const { isSemver } = require('../test-validators')
+const { ServiceTester } = require('../tester')
 
-const t = (module.exports = require('../tester').createServiceTester())
+const t = (module.exports = new ServiceTester({
+  id: 'GithubTag',
+  title: 'Github Tag',
+  pathPrefix: '/github',
+}))
 
 t.create('Tag')
-  .get('/tag/photonstorm/phaser.json')
-  .expectJSONTypes(Joi.object().keys({ name: 'tag', value: Joi.string() }))
+  .get('/v/tag/expressjs/express.json')
+  .expectBadge({ label: 'tag', message: isSemver, color: 'blue' })
 
 t.create('Tag (inc pre-release)')
-  .get('/tag-pre/photonstorm/phaser.json')
-  .expectJSONTypes(Joi.object().keys({ name: 'tag', value: Joi.string() }))
+  .get('/v/tag/expressjs/express.json?include_prereleases')
+  .expectBadge({
+    label: 'tag',
+    message: isSemver,
+    color: Joi.string()
+      .allow('blue', 'orange')
+      .required(),
+  })
+
+t.create('Tag (no tags)')
+  .get('/v/tag/badges/daily-tests.json')
+  .expectBadge({ label: 'tag', message: 'no tags found' })
 
 t.create('Tag (repo not found)')
-  .get('/tag/badges/helmets.json')
-  .expectJSON({ name: 'tag', value: 'repo not found' })
+  .get('/v/tag/badges/helmets.json')
+  .expectBadge({ label: 'tag', message: 'repo not found' })
 
-const tagsFixture = [
-  { name: 'cheese' }, // any old string
-  { name: 'v1.3-beta3' }, // semver pre-release
-  { name: 'v1.2' }, // semver release
-]
+// redirects
+t.create('Tag (legacy route: tag)')
+  .get('/tag/photonstorm/phaser.svg', { followRedirect: false })
+  .expectStatus(301)
+  .expectHeader('Location', '/github/v/tag/photonstorm/phaser.svg?sort=semver')
 
-t.create('Tag (mocked response, no pre-releases, semver ordering)')
-  .get('/tag/foo/bar.json?style=_shields_test')
-  .intercept(nock =>
-    nock('https://api.github.com')
-      .get('/repos/foo/bar/tags')
-      .reply(200, tagsFixture)
+t.create('Tag (legacy route: tag-pre)')
+  .get('/tag-pre/photonstorm/phaser.svg', { followRedirect: false })
+  .expectStatus(301)
+  .expectHeader(
+    'Location',
+    '/github/v/tag/photonstorm/phaser.svg?include_prereleases&sort=semver'
   )
-  .expectJSON({ name: 'tag', value: 'v1.2', color: 'blue' })
 
-t.create('Tag (mocked response, include pre-releases, semver ordering)')
-  .get('/tag-pre/foo/bar.json?style=_shields_test')
-  .intercept(nock =>
-    nock('https://api.github.com')
-      .get('/repos/foo/bar/tags')
-      .reply(200, tagsFixture)
-  )
-  .expectJSON({ name: 'tag', value: 'v1.3-beta3', color: 'orange' })
-
-t.create('Tag (mocked response, date ordering)')
-  .get('/tag-date/foo/bar.json?style=_shields_test')
-  .intercept(nock =>
-    nock('https://api.github.com')
-      .get('/repos/foo/bar/tags')
-      .reply(200, tagsFixture)
-  )
-  .expectJSON({ name: 'tag', value: 'cheese', color: 'blue' })
+t.create('Tag (legacy route: tag-date)')
+  .get('/tag-date/photonstorm/phaser.svg', { followRedirect: false })
+  .expectStatus(301)
+  .expectHeader('Location', '/github/v/tag/photonstorm/phaser.svg')

@@ -1,10 +1,7 @@
 'use strict'
 
-const Joi = require('joi')
-const {
-  isBuildStatus,
-  renderBuildStatusBadge,
-} = require('../../lib/build-status')
+const Joi = require('@hapi/joi')
+const { isBuildStatus, renderBuildStatusBadge } = require('../build-status')
 const { BaseSvgScrapingService } = require('..')
 
 const schema = Joi.object({
@@ -21,7 +18,7 @@ module.exports = class TravisBuild extends BaseSvgScrapingService {
   static get route() {
     return {
       base: 'travis',
-      format: '(?:(com)/)?(?!php-v)([^/]+/[^/]+)(?:/(.+))?',
+      format: '(?:(com)/)?(?!php-v)([^/]+/[^/]+?)(?:/(.+?))?',
       capture: ['comDomain', 'userRepo', 'branch'],
     }
   }

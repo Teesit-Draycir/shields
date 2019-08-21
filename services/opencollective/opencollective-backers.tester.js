@@ -1,11 +1,10 @@
 'use strict'
 
-const Joi = require('joi')
 const { nonNegativeInteger } = require('../validators')
 const t = (module.exports = require('../tester').createServiceTester())
 
 t.create('renders correctly')
-  .get('/shields.json?style=_shields_test')
+  .get('/shields.json')
   .intercept(nock =>
     nock('https://opencollective.com/')
       .get('/shields/members/users.json')
@@ -72,29 +71,23 @@ t.create('renders correctly')
         { MemberId: 27132, type: 'USER', role: 'CONTRIBUTOR' },
       ])
   )
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'backers',
-      value: '25',
-      color: 'brightgreen',
-    })
-  )
+  .expectBadge({
+    label: 'backers',
+    message: '25',
+    color: 'brightgreen',
+  })
 
 t.create('gets amount of backers')
   .get('/shields.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'backers',
-      value: nonNegativeInteger,
-    })
-  )
+  .expectBadge({
+    label: 'backers',
+    message: nonNegativeInteger,
+  })
 
 t.create('handles not found correctly')
-  .get('/nonexistent-collective.json?style=_shield_test')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'backers',
-      value: 'collective not found',
-      color: 'red',
-    })
-  )
+  .get('/nonexistent-collective.json')
+  .expectBadge({
+    label: 'backers',
+    message: 'collective not found',
+    color: 'red',
+  })

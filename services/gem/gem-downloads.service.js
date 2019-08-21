@@ -1,12 +1,12 @@
 'use strict'
 
 const semver = require('semver')
-const Joi = require('joi')
-const { downloadCount } = require('../../lib/color-formatters')
-const { metric } = require('../../lib/text-formatters')
-const { latest: latestVersion } = require('../../lib/version')
-const { BaseJsonService, InvalidParameter, InvalidResponse } = require('..')
+const Joi = require('@hapi/joi')
+const { downloadCount } = require('../color-formatters')
+const { metric } = require('../text-formatters')
+const { latest: latestVersion } = require('../version')
 const { nonNegativeInteger } = require('../validators')
+const { BaseJsonService, InvalidParameter, InvalidResponse } = require('..')
 
 const keywords = ['ruby']
 
@@ -27,6 +27,89 @@ const versionSchema = Joi.array()
   .required()
 
 module.exports = class GemDownloads extends BaseJsonService {
+  static get category() {
+    return 'downloads'
+  }
+
+  static get route() {
+    return {
+      base: 'gem',
+      pattern: ':variant(dt|dtv|dv)/:gem/:version?',
+    }
+  }
+
+  static get examples() {
+    return [
+      {
+        title: 'Gem',
+        pattern: 'dv/:gem/:version',
+        namedParams: {
+          gem: 'rails',
+          version: 'stable',
+        },
+        staticPreview: this.render({
+          variant: 'dv',
+          version: 'stable',
+          downloads: 70000,
+        }),
+        keywords,
+      },
+      {
+        title: 'Gem',
+        pattern: 'dv/:gem/:version',
+        namedParams: {
+          gem: 'rails',
+          version: '4.1.0',
+        },
+        staticPreview: this.render({
+          variant: 'dv',
+          version: '4.1.0',
+          downloads: 50000,
+        }),
+        keywords,
+      },
+      {
+        title: 'Gem',
+        pattern: 'dtv/:gem',
+        namedParams: { gem: 'rails' },
+        staticPreview: this.render({
+          variant: 'dtv',
+          downloads: 70000,
+        }),
+        keywords,
+      },
+      {
+        title: 'Gem',
+        pattern: 'dt/:gem',
+        namedParams: { gem: 'rails' },
+        staticPreview: this.render({
+          variant: 'dt',
+          downloads: 900000,
+        }),
+        keywords,
+      },
+    ]
+  }
+
+  static get defaultBadgeData() {
+    return { label: 'downloads' }
+  }
+
+  static render({ variant, version, downloads }) {
+    let label
+    if (version) {
+      label = `downloads@${version}`
+    } else if (variant === 'dtv') {
+      label = 'downloads@latest'
+    }
+
+    return {
+      label,
+      message: metric(downloads),
+      color: downloadCount(downloads),
+    }
+  }
+
   async fetchDownloadCountForVersion({ gem, version }) {
     const json = await this._requestJson({
       url: `https://rubygems.org/api/v1/versions/${gem}.json`,
@@ -69,24 +152,9 @@ module.exports = class GemDownloads extends BaseJsonService {
     return { totalDownloads, versionDownloads }
   }
 
-  static render({ which, version, downloads }) {
-    let label
-    if (version) {
-      label = `downloads@${version}`
-    } else if (which === 'dtv') {
-      label = 'downloads@latest'
-    }
-
-    return {
-      label,
-      message: metric(downloads),
-      color: downloadCount(downloads),
-    }
-  }
-
-  async handle({ which, gem, version }) {
+  async handle({ variant, gem, version }) {
     let downloads
-    if (which === 'dv') {
+    if (variant === 'dv') {
       if (!version) {
         throw new InvalidParameter({
           prettyMessage: 'version downloads requires a version',
@@ -102,78 +170,9 @@ module.exports = class GemDownloads extends BaseJsonService {
       const {
         totalDownloads,
         versionDownloads,
-      } = await this.fetchDownloadCountForGem({ gem, which })
-      downloads = which === 'dtv' ? versionDownloads : totalDownloads
+      } = await this.fetchDownloadCountForGem({ gem, variant })
+      downloads = variant === 'dtv' ? versionDownloads : totalDownloads
     }
-    return this.constructor.render({ which, version, downloads })
-  }
-
-  // Metadata
-  static get defaultBadgeData() {
-    return { label: 'downloads' }
-  }
-
-  static get category() {
-    return 'downloads'
-  }
-
-  static get route() {
-    return {
-      base: 'gem',
-      pattern: ':which(dt|dtv|dv)/:gem/:version?',
-    }
-  }
-
-  static get examples() {
-    return [
-      {
-        title: 'Gem',
-        pattern: 'dv/:gem/:version',
-        namedParams: {
-          gem: 'rails',
-          version: 'stable',
-        },
-        staticPreview: this.render({
-          which: 'dv',
-          version: 'stable',
-          downloads: 70000,
-        }),
-        keywords,
-      },
-      {
-        title: 'Gem',
-        pattern: 'dv/:gem/:version',
-        namedParams: {
-          gem: 'rails',
-          version: '4.1.0',
-        },
-        staticPreview: this.render({
-          which: 'dv',
-          version: '4.1.0',
-          downloads: 50000,
-        }),
-        keywords,
-      },
-      {
-        title: 'Gem',
-        pattern: 'dtv/:gem',
-        namedParams: { gem: 'rails' },
-        staticPreview: this.render({
-          which: 'dtv',
-          downloads: 70000,
-        }),
-        keywords,
-      },
-      {
-        title: 'Gem',
-        pattern: 'dt/:gem',
-        namedParams: { gem: 'rails' },
-        staticPreview: this.render({
-          which: 'dt',
-          downloads: 900000,
-        }),
-        keywords,
-      },
-    ]
+    return this.constructor.render({ variant, version, downloads })
   }
 }

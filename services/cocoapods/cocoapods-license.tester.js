@@ -1,27 +1,11 @@
 'use strict'
 
-const { invalidJSON } = require('../response-fixtures')
-
 const t = (module.exports = require('../tester').createServiceTester())
 
 t.create('license (valid)')
   .get('/AFNetworking.json')
-  .expectJSON({ name: 'license', value: 'MIT' })
+  .expectBadge({ label: 'license', message: 'MIT' })
 
 t.create('license (not found)')
   .get('/not-a-package.json')
-  .expectJSON({ name: 'license', value: 'not found' })
-
-t.create('license (connection error)')
-  .get('/AFNetworking.json')
-  .networkOff()
-  .expectJSON({ name: 'license', value: 'inaccessible' })
-
-t.create('license (unexpected response)')
-  .get('/AFNetworking.json')
-  .intercept(nock =>
-    nock('https://trunk.cocoapods.org')
-      .get('/api/v1/pods/AFNetworking/specs/latest')
-      .reply(invalidJSON)
-  )
-  .expectJSON({ name: 'license', value: 'invalid' })
+  .expectBadge({ label: 'license', message: 'not found' })

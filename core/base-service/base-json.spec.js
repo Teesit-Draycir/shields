@@ -1,9 +1,8 @@
 'use strict'
 
-const Joi = require('joi')
+const Joi = require('@hapi/joi')
 const { expect } = require('chai')
 const sinon = require('sinon')
-
 const BaseJsonService = require('./base-json')
 
 const dummySchema = Joi.object({

@@ -1,28 +1,23 @@
 'use strict'
 
-const Joi = require('joi')
 const { ServiceTester } = require('../tester')
-const { isPhpVersionReduction } = require('../test-validators')
 
 const t = (module.exports = new ServiceTester({
   id: 'php-eye',
-  title: 'PHP version from PHP-Eye',
+  title: 'php-eye',
+  pathPrefix: '/php-eye',
 }))
 
-t.create('gets the package version of symfony')
+t.create('no longer available (previously default branch)')
   .get('/symfony/symfony.json')
-  .expectJSONTypes(
-    Joi.object().keys({ name: 'php tested', value: isPhpVersionReduction })
-  )
+  .expectBadge({
+    label: 'php tested',
+    message: 'no longer available',
+  })
 
-t.create('gets the package version of symfony 2.8')
-  .get('/symfony/symfony/v2.8.0.json')
-  .expectJSON({ name: 'php tested', value: '5.3 - 7.0, HHVM' })
-
-t.create('gets the package version of yii')
-  .get('/yiisoft/yii.json')
-  .expectJSON({ name: 'php tested', value: '5.3 - 7.1' })
-
-t.create('invalid package name')
-  .get('/frodo/is-not-a-package.json')
-  .expectJSON({ name: 'php tested', value: 'invalid' })
+t.create('no longer available (get specific branch)')
+  .get('/yiisoft/yii/1.1.19.json')
+  .expectBadge({
+    label: 'php tested',
+    message: 'no longer available',
+  })

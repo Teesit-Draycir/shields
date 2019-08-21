@@ -1,6 +1,5 @@
 'use strict'
 
-const Joi = require('joi')
 const { ServiceTester } = require('../tester')
 const {
   isMetric,
@@ -24,33 +23,29 @@ const t = (module.exports = new ServiceTester({
 
 t.create('total downloads (valid)')
   .get('/myget/mongodb/dt/MongoDB.Driver.Core.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'downloads',
-      value: isMetric,
-    })
-  )
+  .expectBadge({
+    label: 'downloads',
+    message: isMetric,
+  })
 
 t.create('total downloads (tenant)')
   .get('/dotnet.myget/dotnet-coreclr/dt/Microsoft.DotNet.CoreCLR.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'downloads',
-      value: isMetric,
-    })
-  )
+  .expectBadge({
+    label: 'downloads',
+    message: isMetric,
+  })
 
 t.create('total downloads (not found)')
   .get('/myget/mongodb/dt/not-a-real-package.json')
-  .expectJSON({ name: 'downloads', value: 'package not found' })
+  .expectBadge({ label: 'downloads', message: 'package not found' })
 
 // This tests the erroring behavior in regular-update.
 t.create('total downloads (connection error)')
   .get('/myget/mongodb/dt/MongoDB.Driver.Core.json')
   .networkOff()
-  .expectJSON({
-    name: 'downloads',
-    value: 'intermediate resource inaccessible',
+  .expectBadge({
+    label: 'downloads',
+    message: 'intermediate resource inaccessible',
   })
 
 // This tests the erroring behavior in regular-update.
@@ -61,33 +56,29 @@ t.create('total downloads (unexpected first response)')
       .get('/F/mongodb/api/v3/index.json')
       .reply(invalidJSON)
   )
-  .expectJSON({
-    name: 'downloads',
-    value: 'unparseable intermediate json response',
+  .expectBadge({
+    label: 'downloads',
+    message: 'unparseable intermediate json response',
   })
 
 // version
 
 t.create('version (valid)')
   .get('/myget/mongodb/v/MongoDB.Driver.Core.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'mongodb',
-      value: isVPlusDottedVersionNClausesWithOptionalSuffix,
-    })
-  )
+  .expectBadge({
+    label: 'mongodb',
+    message: isVPlusDottedVersionNClausesWithOptionalSuffix,
+  })
 
 t.create('total downloads (tenant)')
   .get('/dotnet.myget/dotnet-coreclr/v/Microsoft.DotNet.CoreCLR.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'dotnet-coreclr',
-      value: isVPlusDottedVersionNClausesWithOptionalSuffix,
-    })
-  )
+  .expectBadge({
+    label: 'dotnet-coreclr',
+    message: isVPlusDottedVersionNClausesWithOptionalSuffix,
+  })
 
-t.create('version (mocked, yellow badge)')
-  .get('/myget/mongodb/v/MongoDB.Driver.Core.json?style=_shields_test')
+t.create('version (yellow badge)')
+  .get('/myget/mongodb/v/MongoDB.Driver.Core.json')
   .intercept(nock =>
     nock('https://www.myget.org')
       .get('/F/mongodb/api/v3/index.json')
@@ -100,14 +91,14 @@ t.create('version (mocked, yellow badge)')
       )
       .reply(200, nuGetV3VersionJsonWithDash)
   )
-  .expectJSON({
-    name: 'mongodb',
-    value: 'v1.2-beta',
+  .expectBadge({
+    label: 'mongodb',
+    message: 'v1.2-beta',
     color: 'yellow',
   })
 
-t.create('version (mocked, orange badge)')
-  .get('/myget/mongodb/v/MongoDB.Driver.Core.json?style=_shields_test')
+t.create('version (orange badge)')
+  .get('/myget/mongodb/v/MongoDB.Driver.Core.json')
   .intercept(nock =>
     nock('https://www.myget.org')
       .get('/F/mongodb/api/v3/index.json')
@@ -120,14 +111,14 @@ t.create('version (mocked, orange badge)')
       )
       .reply(200, nuGetV3VersionJsonFirstCharZero)
   )
-  .expectJSON({
-    name: 'mongodb',
-    value: 'v0.35',
+  .expectBadge({
+    label: 'mongodb',
+    message: 'v0.35',
     color: 'orange',
   })
 
-t.create('version (mocked, blue badge)')
-  .get('/myget/mongodb/v/MongoDB.Driver.Core.json?style=_shields_test')
+t.create('version (blue badge)')
+  .get('/myget/mongodb/v/MongoDB.Driver.Core.json')
   .intercept(nock =>
     nock('https://www.myget.org')
       .get('/F/mongodb/api/v3/index.json')
@@ -140,29 +131,27 @@ t.create('version (mocked, blue badge)')
       )
       .reply(200, nuGetV3VersionJsonFirstCharNotZero)
   )
-  .expectJSON({
-    name: 'mongodb',
-    value: 'v1.2.7',
+  .expectBadge({
+    label: 'mongodb',
+    message: 'v1.2.7',
     color: 'blue',
   })
 
 t.create('version (not found)')
   .get('/myget/foo/v/not-a-real-package.json')
-  .expectJSON({ name: 'myget', value: 'package not found' })
+  .expectBadge({ label: 'myget', message: 'package not found' })
 
 // version (pre)
 
 t.create('version (pre) (valid)')
   .get('/myget/mongodb/vpre/MongoDB.Driver.Core.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'mongodb',
-      value: isVPlusDottedVersionNClausesWithOptionalSuffix,
-    })
-  )
+  .expectBadge({
+    label: 'mongodb',
+    message: isVPlusDottedVersionNClausesWithOptionalSuffix,
+  })
 
-t.create('version (pre) (mocked, yellow badge)')
-  .get('/myget/mongodb/vpre/MongoDB.Driver.Core.json?style=_shields_test')
+t.create('version (pre) (yellow badge)')
+  .get('/myget/mongodb/vpre/MongoDB.Driver.Core.json')
   .intercept(nock =>
     nock('https://www.myget.org')
       .get('/F/mongodb/api/v3/index.json')
@@ -175,14 +164,14 @@ t.create('version (pre) (mocked, yellow badge)')
       )
       .reply(200, nuGetV3VersionJsonWithDash)
   )
-  .expectJSON({
-    name: 'mongodb',
-    value: 'v1.2-beta',
+  .expectBadge({
+    label: 'mongodb',
+    message: 'v1.2-beta',
     color: 'yellow',
   })
 
-t.create('version (pre) (mocked, orange badge)')
-  .get('/myget/mongodb/vpre/MongoDB.Driver.Core.json?style=_shields_test')
+t.create('version (pre) (orange badge)')
+  .get('/myget/mongodb/vpre/MongoDB.Driver.Core.json')
   .intercept(nock =>
     nock('https://www.myget.org')
       .get('/F/mongodb/api/v3/index.json')
@@ -195,14 +184,14 @@ t.create('version (pre) (mocked, orange badge)')
       )
       .reply(200, nuGetV3VersionJsonFirstCharZero)
   )
-  .expectJSON({
-    name: 'mongodb',
-    value: 'v0.35',
+  .expectBadge({
+    label: 'mongodb',
+    message: 'v0.35',
     color: 'orange',
   })
 
-t.create('version (pre) (mocked, blue badge)')
-  .get('/myget/mongodb/vpre/MongoDB.Driver.Core.json?style=_shields_test')
+t.create('version (pre) (blue badge)')
+  .get('/myget/mongodb/vpre/MongoDB.Driver.Core.json')
   .intercept(nock =>
     nock('https://www.myget.org')
       .get('/F/mongodb/api/v3/index.json')
@@ -215,12 +204,12 @@ t.create('version (pre) (mocked, blue badge)')
       )
       .reply(200, nuGetV3VersionJsonFirstCharNotZero)
   )
-  .expectJSON({
-    name: 'mongodb',
-    value: 'v1.2.7',
+  .expectBadge({
+    label: 'mongodb',
+    message: 'v1.2.7',
     color: 'blue',
   })
 
 t.create('version (pre) (not found)')
   .get('/myget/foo/vpre/not-a-real-package.json')
-  .expectJSON({ name: 'myget', value: 'package not found' })
+  .expectBadge({ label: 'myget', message: 'package not found' })

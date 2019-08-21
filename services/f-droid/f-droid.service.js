@@ -1,51 +1,59 @@
 'use strict'
 
-const Joi = require('joi')
-const { addv } = require('../../lib/text-formatters')
-const { version: versionColor } = require('../../lib/color-formatters')
+const Joi = require('@hapi/joi')
+const { addv } = require('../text-formatters')
+const { version: versionColor } = require('../color-formatters')
 const { BaseYamlService, InvalidResponse } = require('..')
 
 const schema = Joi.object({
   CurrentVersion: Joi.alternatives()
-    .try(Joi.number(), Joi.string())
+    .try(Joi.string(), Joi.number())
     .required(),
 }).required()
 
+const queryParamSchema = Joi.object({
+  metadata_format: Joi.string().valid(['yml', 'txt']),
+}).required()
+
 module.exports = class FDroid extends BaseYamlService {
+  static get category() {
+    return 'version'
+  }
+
+  static get route() {
+    return {
+      base: 'f-droid/v',
+      pattern: ':appId',
+      queryParamSchema,
+    }
+  }
+
+  static get examples() {
+    return [
+      {
+        title: 'F-Droid',
+        namedParams: { appId: 'org.thosp.yourlocalweather' },
+        staticPreview: this.render({ version: '1.0' }),
+        keywords: ['fdroid', 'android', 'app'],
+      },
+      {
+        title: 'F-Droid (explicit metadata format)',
+        namedParams: { appId: 'org.dystopia.email' },
+        queryParams: { metadata_format: 'yml' },
+        staticPreview: this.render({ version: '1.2.1' }),
+        keywords: ['fdroid', 'android', 'app'],
+      },
+    ]
+  }
+  static get defaultBadgeData() {
+    return { label: 'f-droid' }
+  }
+
   static render({ version }) {
     return {
       message: addv(version),
       color: versionColor(version),
     }
-  }
-
-  async handle({ appId }, queryParams) {
-    const constructor = this.constructor
-    const { metadata_format: format } = constructor.validateParams(queryParams)
-    const url = `https://gitlab.com/fdroid/fdroiddata/raw/master/metadata/${appId}`
-    const fetchOpts = {
-      options: {},
-      errorMessages: {
-        404: 'app not found',
-      },
-    }
-    const fetch = format === 'yml' ? this.fetchYaml : this.fetchText
-    let result
-
-    try {
-      // currently, we only use the txt format to the initial fetch because
-      // there are more apps with that format but yml is now the standard format
-      // on f-droid, so if txt is not found we look for yml as the fallback
-      result = await fetch.call(this, url, fetchOpts)
-    } catch (error) {
-      if (format) {
-        // if the format was specified it doesn't make the fallback request
-        throw error
-      }
-      result = await this.fetchYaml(url, fetchOpts)
-    }
-
-    return constructor.render(result)
   }
 
   async fetchYaml(url, options) {
@@ -82,46 +90,30 @@ module.exports = class FDroid extends BaseYamlService {
     return { version: match[1] }
   }
 
-  static validateParams(queryParams) {
-    const queryParamsSchema = Joi.object({
-      metadata_format: Joi.string().valid(['yml', 'txt']),
-    }).required()
-
-    return this._validateQueryParams(queryParams, queryParamsSchema)
-  }
-
-  // Metadata
-  static get defaultBadgeData() {
-    return { label: 'f-droid' }
-  }
-
-  static get category() {
-    return 'version'
-  }
-
-  static get route() {
-    return {
-      base: 'f-droid/v',
-      pattern: ':appId',
-      queryParams: ['metadata_format'],
+  async handle({ appId }, { metadata_format: metadataFormat }) {
+    const url = `https://gitlab.com/fdroid/fdroiddata/raw/master/metadata/${appId}`
+    const fetchOpts = {
+      options: {},
+      errorMessages: {
+        404: 'app not found',
+      },
     }
-  }
+    const fetch = metadataFormat === 'yml' ? this.fetchYaml : this.fetchText
+    let result
 
-  static get examples() {
-    return [
-      {
-        title: 'F-Droid',
-        namedParams: { appId: 'org.thosp.yourlocalweather' },
-        staticPreview: this.render({ version: '1.0' }),
-        keywords: ['fdroid', 'android', 'app'],
-      },
-      {
-        title: 'F-Droid (explicit metadata format)',
-        namedParams: { appId: 'org.dystopia.email' },
-        queryParams: { metadata_format: 'yml' },
-        staticPreview: this.render({ version: '1.2.1' }),
-        keywords: ['fdroid', 'android', 'app'],
-      },
-    ]
+    try {
+      // currently, we only use the txt format to the initial fetch because
+      // there are more apps with that format but yml is now the standard format
+      // on f-droid, so if txt is not found we look for yml as the fallback
+      result = await fetch.call(this, url, fetchOpts)
+    } catch (error) {
+      if (metadataFormat) {
+        // if the format was specified it doesn't make the fallback request
+        throw error
+      }
+      result = await this.fetchYaml(url, fetchOpts)
+    }
+
+    return this.constructor.render(result)
   }
 }

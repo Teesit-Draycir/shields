@@ -1,6 +1,6 @@
 'use strict'
 
-const Joi = require('joi')
+const Joi = require('@hapi/joi')
 const { BaseJsonService } = require('..')
 
 const schema = Joi.object()
@@ -30,10 +30,9 @@ module.exports = class BaseBowerService extends BaseJsonService {
     return this._requestJson({
       schema,
       url: `https://libraries.io/api/bower/${packageName}`,
+      errorMessages: {
+        404: 'package not found',
+      },
     })
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'bower' }
   }
 }

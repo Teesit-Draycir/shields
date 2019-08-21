@@ -2,9 +2,9 @@
 
 const { DOMParser } = require('xmldom')
 const xpath = require('xpath')
-const { BaseService, InvalidResponse } = require('..')
 const { renderDynamicBadge, errorMessages } = require('../dynamic-common')
-const { createRoute, queryParamSchema } = require('./dynamic-helpers')
+const { createRoute } = require('./dynamic-helpers')
+const { BaseService, InvalidResponse } = require('..')
 
 // This service extends BaseService because it uses a different XML parser
 // than BaseXmlService which can be used with xpath.
@@ -27,15 +27,11 @@ module.exports = class DynamicXml extends BaseService {
     }
   }
 
-  async handle(namedParams, queryParams) {
-    const {
-      url,
-      query: pathExpression,
-      prefix,
-      suffix,
-    } = this.constructor._validateQueryParams(queryParams, queryParamSchema)
-
-    const pathIsAttr = pathExpression.includes('@')
+  async handle(namedParams, { url, query: pathExpression, prefix, suffix }) {
+    // e.g. //book[2]/@id
+    const pathIsAttr = (
+      pathExpression.split('/').slice(-1)[0] || ''
+    ).startsWith('@')
 
     const { buffer } = await this._request({
       url,
