@@ -1,94 +1,97 @@
 'use strict'
 
-const Joi = require('joi')
-const sinon = require('sinon')
 const {
   isVPlusDottedVersionNClausesWithOptionalSuffix: isVersion,
 } = require('../test-validators')
 const t = (module.exports = require('../tester').createServiceTester())
-const serverSecrets = require('../../lib/server-secrets')
 
-const user = 'admin'
-const pass = 'password'
-
-function mockNexusCreds() {
-  serverSecrets['nexus_user'] = undefined
-  serverSecrets['nexus_pass'] = undefined
-  sinon.stub(serverSecrets, 'nexus_user').value(user)
-  sinon.stub(serverSecrets, 'nexus_pass').value(pass)
-}
-
-t.create('live: search release version valid artifact')
-  .get('/r/https/repository.jboss.org/nexus/jboss/jboss-client.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'nexus',
-      value: isVersion,
-    })
-  )
-
-t.create('live: search release version of an inexistent artifact')
-  .get('/r/https/repository.jboss.org/nexus/jboss/inexistent-artifact-id.json')
-  .expectJSON({
-    name: 'nexus',
-    value: 'artifact or version not found',
+t.create('Nexus 2 - search release version valid artifact')
+  .timeout(15000)
+  .get('/r/com.google/bitcoinj.json?server=https://oss.sonatype.org')
+  .expectBadge({
+    label: 'nexus',
+    message: isVersion,
   })
 
-t.create('live: search snapshot version valid snapshot artifact')
-  .get('/s/https/repository.jboss.org/nexus/com.progress.fuse/fusehq.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'nexus',
-      value: isVersion,
-    })
-  )
-
-t.create('live: search snapshot version of a release artifact')
-  .get('/s/https/repository.jboss.org/nexus/jboss/jboss-client.json')
-  .expectJSON({ name: 'nexus', value: 'no snapshot versions found' })
-
-t.create('live: search snapshot version of an inexistent artifact')
+t.create('Nexus 2 - search release version of an nonexistent artifact')
+  .timeout(15000)
   .get(
-    '/s/https/repository.jboss.org/nexus/jboss/inexistent-artifact-id.json?style=_shields_test'
+    '/r/com.google.guava/nonexistent-artifact-id.json?server=https://oss.sonatype.org'
   )
-  .expectJSON({
-    name: 'nexus',
-    value: 'artifact or version not found',
+  .expectBadge({
+    label: 'nexus',
+    message: 'artifact or version not found',
+  })
+
+t.create('Nexus 2 - search snapshot version valid snapshot artifact')
+  .timeout(15000)
+  .get(
+    '/s/org.fusesource.apollo/apollo-karaf-feature.json?server=https://repository.jboss.org/nexus'
+  )
+  .expectBadge({
+    label: 'nexus',
+    message: isVersion,
+  })
+
+t.create('Nexus 2 - search snapshot version of an nonexistent artifact')
+  .timeout(15000)
+  .get(
+    '/s/com.google.guava/nonexistent-artifact-id.json?server=https://oss.sonatype.org'
+  )
+  .expectBadge({
+    label: 'nexus',
+    message: 'artifact or version not found',
     color: 'red',
   })
 
-t.create('live: repository version')
-  .get('/developer/https/repository.jboss.org/nexus/ai.h2o/h2o-automl.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'nexus',
-      value: isVersion,
-    })
-  )
-
-t.create('live: repository version with query')
-  .get(
-    '/fs-public-snapshots/https/repository.jboss.org/nexus/com.progress.fuse/fusehq:c=agent-apple-osx:p=tar.gz.json'
-  )
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'nexus',
-      value: isVersion,
-    })
-  )
-
-t.create('live: repository version of an inexistent artifact')
-  .get(
-    '/developer/https/repository.jboss.org/nexus/jboss/inexistent-artifact-id.json'
-  )
-  .expectJSON({
-    name: 'nexus',
-    value: 'artifact not found',
+t.create('Nexus 2 - repository version')
+  .get('/public/asm/asm.json?server=http://repo.e-iceblue.com/nexus')
+  .expectBadge({
+    label: 'nexus',
+    message: isVersion,
   })
 
-t.create('search snapshot version not in latestSnapshot')
+t.create('Nexus 2 - repository version with query')
+  .timeout(15000)
   .get(
-    '/s/https/repository.jboss.org/nexus/com.progress.fuse/fusehq.json?style=_shields_test'
+    `/fs-public-snapshots/com.progress.fuse/fusehq.json?server=https://repository.jboss.org/nexus&queryOpt=${encodeURIComponent(
+      ':p=tar.gz:c=agent-apple-osx'
+    )}`
+  )
+  .expectBadge({
+    label: 'nexus',
+    message: isVersion,
+  })
+
+t.create('Nexus 2 - repository version of an nonexistent artifact')
+  .timeout(15000)
+  .get(
+    '/developer/jboss/nonexistent-artifact-id.json?server=https://repository.jboss.org/nexus'
+  )
+  .expectBadge({
+    label: 'nexus',
+    message: 'artifact not found',
+  })
+
+t.create('Nexus 2 - snapshot version with + in version')
+  .get(
+    '/s/com.progress.fuse/fusehq.json?server=https://repository.jboss.org/nexus'
+  )
+  .intercept(nock =>
+    nock('https://repository.jboss.org/nexus')
+      .get('/service/local/lucene/search')
+      .query({ g: 'com.progress.fuse', a: 'fusehq' })
+      .reply(200, { data: [{ version: '7.0.1+19-8844c122-SNAPSHOT' }] })
+  )
+  .expectBadge({
+    label: 'nexus',
+    color: 'orange',
+    message: isVersion,
+  })
+
+t.create('Nexus 2 - search snapshot version not in latestSnapshot')
+  .get(
+    '/s/com.progress.fuse/fusehq.json?server=https://repository.jboss.org/nexus'
   )
   .intercept(nock =>
     nock('https://repository.jboss.org/nexus')
@@ -96,15 +99,15 @@ t.create('search snapshot version not in latestSnapshot')
       .query({ g: 'com.progress.fuse', a: 'fusehq' })
       .reply(200, { data: [{ version: '7.0.1-SNAPSHOT' }] })
   )
-  .expectJSON({
-    name: 'nexus',
-    value: 'v7.0.1-SNAPSHOT',
+  .expectBadge({
+    label: 'nexus',
+    message: 'v7.0.1-SNAPSHOT',
     color: 'orange',
   })
 
-t.create('search snapshot no snapshot versions')
+t.create('Nexus 2 - search snapshot no snapshot versions')
   .get(
-    '/s/https/repository.jboss.org/nexus/com.progress.fuse/fusehq.json?style=_shields_test'
+    '/s/com.progress.fuse/fusehq.json?server=https://repository.jboss.org/nexus'
   )
   .intercept(nock =>
     nock('https://repository.jboss.org/nexus')
@@ -112,31 +115,29 @@ t.create('search snapshot no snapshot versions')
       .query({ g: 'com.progress.fuse', a: 'fusehq' })
       .reply(200, { data: [{ version: '1.2.3' }] })
   )
-  .expectJSON({
-    name: 'nexus',
-    value: 'no snapshot versions found',
-    color: 'lightgray',
+  .expectBadge({
+    label: 'nexus',
+    message: 'no snapshot versions found',
+    color: 'lightgrey',
   })
 
-t.create('search release version')
-  .get(
-    '/r/https/repository.jboss.org/nexus/jboss/jboss-client.json?style=_shields_test'
-  )
+t.create('Nexus 2 - search release version')
+  .get('/r/jboss/jboss-client.json?server=https://repository.jboss.org/nexus')
   .intercept(nock =>
     nock('https://repository.jboss.org/nexus')
       .get('/service/local/lucene/search')
       .query({ g: 'jboss', a: 'jboss-client' })
       .reply(200, { data: [{ latestRelease: '1.0.0' }] })
   )
-  .expectJSON({
-    name: 'nexus',
-    value: 'v1.0.0',
+  .expectBadge({
+    label: 'nexus',
+    message: 'v1.0.0',
     color: 'blue',
   })
 
-t.create('repository release version')
+t.create('Nexus 2 - repository release version')
   .get(
-    '/developer/https/repository.jboss.org/nexus/ai.h2o/h2o-automl.json?style=_shields_test'
+    '/developer/ai.h2o/h2o-automl.json?server=https://repository.jboss.org/nexus'
   )
   .intercept(nock =>
     nock('https://repository.jboss.org/nexus')
@@ -154,15 +155,15 @@ t.create('repository release version')
         },
       })
   )
-  .expectJSON({
-    name: 'nexus',
-    value: 'v1.2.3',
+  .expectBadge({
+    label: 'nexus',
+    message: 'v1.2.3',
     color: 'blue',
   })
 
-t.create('repository release version')
+t.create('Nexus 2 - repository release version')
   .get(
-    '/developer/https/repository.jboss.org/nexus/ai.h2o/h2o-automl.json?style=_shields_test'
+    '/developer/ai.h2o/h2o-automl.json?server=https://repository.jboss.org/nexus'
   )
   .intercept(nock =>
     nock('https://repository.jboss.org/nexus')
@@ -179,15 +180,15 @@ t.create('repository release version')
         },
       })
   )
-  .expectJSON({
-    name: 'nexus',
-    value: 'v1.0.0',
+  .expectBadge({
+    label: 'nexus',
+    message: 'v1.0.0',
     color: 'blue',
   })
 
-t.create('user query params')
+t.create('Nexus 2 - user query params')
   .get(
-    '/fs-public-snapshots/https/repository.jboss.org/nexus/com.progress.fuse/fusehq:c=agent-apple-osx:p=tar.gz.json?style=_shields_test'
+    '/fs-public-snapshots/com.progress.fuse/fusehq.json?queryOpt=:c=agent-apple-osx:p=tar.gz&server=https://repository.jboss.org/nexus'
   )
   .intercept(nock =>
     nock('https://repository.jboss.org/nexus')
@@ -206,32 +207,77 @@ t.create('user query params')
         },
       })
   )
-  .expectJSON({
-    name: 'nexus',
-    value: 'v3.2.1',
+  .expectBadge({
+    label: 'nexus',
+    message: 'v3.2.1',
     color: 'blue',
   })
 
-t.create('auth')
-  .before(mockNexusCreds)
+t.create('Nexus 3 - search release version valid artifact')
   .get(
-    '/r/https/repository.jboss.org/nexus/jboss/jboss-client.json?style=_shields_test'
+    '/r/org.apache.commons/commons-lang3.json?server=https://nexus.pentaho.org&nexusVersion=3'
   )
-  .intercept(nock =>
-    nock('https://repository.jboss.org/nexus')
-      .get('/service/local/lucene/search')
-      .query({ g: 'jboss', a: 'jboss-client' })
-      // This ensures that the expected credentials from serverSecrets are actually being sent with the HTTP request.
-      // Without this the request wouldn't match and the test would fail.
-      .basicAuth({
-        user,
-        pass,
-      })
-      .reply(200, { data: [{ latestRelease: '2.3.4' }] })
+  .expectBadge({
+    label: 'nexus',
+    message: isVersion,
+  })
+
+t.create(
+  'Nexus 3 - search release version valid artifact without explicit nexusVersion parameter'
+)
+  .timeout(15000)
+  .get(
+    '/r/org.apache.commons/commons-lang3.json?server=https://nexus.pentaho.org'
   )
-  .finally(sinon.restore)
-  .expectJSON({
-    name: 'nexus',
-    value: 'v2.3.4',
-    color: 'blue',
+  .expectBadge({
+    label: 'nexus',
+    message: isVersion,
+  })
+
+t.create('Nexus 3 - search release version of an nonexistent artifact')
+  .get(
+    '/r/org.apache.commons/nonexistent-artifact-id.json?server=https://nexus.pentaho.org&nexusVersion=3'
+  )
+  .expectBadge({
+    label: 'nexus',
+    message: 'artifact or version not found',
+  })
+
+t.create('Nexus 3 - search snapshot version valid snapshot artifact')
+  .get(
+    '/s/org.pentaho/pentaho-registry.json?server=https://nexus.pentaho.org&nexusVersion=3'
+  )
+  .expectBadge({
+    label: 'nexus',
+    message: isVersion,
+  })
+
+t.create('Nexus 3 - search snapshot version for artifact without snapshots')
+  .get(
+    '/s/javax.inject/javax.inject.json?server=https://nexus.pentaho.org&nexusVersion=3'
+  )
+  .expectBadge({
+    label: 'nexus',
+    message: 'artifact or snapshot version not found',
+    color: 'red',
+  })
+
+t.create('Nexus 3 - repository version')
+  .get(
+    '/proxy-public-3rd-party-release/com.fasterxml.jackson.core/jackson-databind.json?server=https://nexus.pentaho.org&nexusVersion=3'
+  )
+  .expectBadge({
+    label: 'nexus',
+    message: isVersion,
+  })
+
+t.create('Nexus 3 - repository version with query')
+  .get(
+    `/proxy-public-3rd-party-release/org.junit.jupiter/junit-jupiter.json?server=https://nexus.pentaho.org&nexusVersion=3&queryOpt=${encodeURIComponent(
+      ':maven.extension=jar:direction=asc'
+    )}`
+  )
+  .expectBadge({
+    label: 'nexus',
+    message: isVersion,
   })

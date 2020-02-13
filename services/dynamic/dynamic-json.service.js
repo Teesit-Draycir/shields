@@ -1,46 +1,24 @@
 'use strict'
 
-const Joi = require('joi')
-const jp = require('jsonpath')
-const { BaseJsonService, InvalidResponse } = require('..')
-const { renderDynamicBadge, errorMessages } = require('../dynamic-common')
-const { createRoute, queryParamSchema } = require('./dynamic-helpers')
+const { MetricNames } = require('../../core/base-service/metric-helper')
+const { createRoute } = require('./dynamic-helpers')
+const jsonPath = require('./json-path')
+const { BaseJsonService } = require('..')
 
-module.exports = class DynamicJson extends BaseJsonService {
-  static get category() {
-    return 'dynamic'
+module.exports = class DynamicJson extends jsonPath(BaseJsonService) {
+  static get enabledMetrics() {
+    return [MetricNames.SERVICE_RESPONSE_SIZE]
   }
 
   static get route() {
     return createRoute('json')
   }
 
-  static get defaultBadgeData() {
-    return {
-      label: 'custom badge',
-    }
-  }
-
-  async handle(namedParams, queryParams) {
-    const {
-      url,
-      query: pathExpression,
-      prefix,
-      suffix,
-    } = this.constructor._validateQueryParams(queryParams, queryParamSchema)
-
-    const data = await this._requestJson({
-      schema: Joi.any(),
+  async fetch({ schema, url, errorMessages }) {
+    return this._requestJson({
+      schema,
       url,
       errorMessages,
     })
-
-    const values = jp.query(data, pathExpression)
-
-    if (!values.length) {
-      throw new InvalidResponse({ prettyMessage: 'no result' })
-    }
-
-    return renderDynamicBadge({ value: values, prefix, suffix })
   }
 }

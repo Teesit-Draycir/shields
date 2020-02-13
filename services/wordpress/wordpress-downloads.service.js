@@ -1,10 +1,10 @@
 'use strict'
 
-const Joi = require('joi')
-const { metric } = require('../../lib/text-formatters')
-const { downloadCount } = require('../../lib/color-formatters')
-const { BaseJsonService, NotFound } = require('..')
+const Joi = require('@hapi/joi')
+const { metric } = require('../text-formatters')
+const { downloadCount } = require('../color-formatters')
 const BaseWordpress = require('./wordpress-base')
+const { NotFound } = require('..')
 
 const dateSchema = Joi.object()
   .pattern(Joi.date().iso(), Joi.number().integer())
@@ -21,43 +21,106 @@ const extensionData = {
   },
 }
 
+const intervalMap = {
+  dd: {
+    limit: 1,
+    messageSuffix: '/day',
+  },
+  dw: {
+    limit: 7,
+    messageSuffix: '/week',
+  },
+  dm: {
+    limit: 30,
+    messageSuffix: '/month',
+  },
+  dy: {
+    limit: 365,
+    messageSuffix: '/year',
+  },
+  dt: {
+    limit: null,
+    messageSuffix: '',
+  },
+}
+
 function DownloadsForExtensionType(extensionType) {
   const { capt, exampleSlug } = extensionData[extensionType]
 
   return class WordpressDownloads extends BaseWordpress {
-    static render({ response }) {
-      return {
-        message: metric(response.downloaded),
-        color: downloadCount(response.downloaded),
-      }
+    static get name() {
+      return `Wordpress${capt}Downloads`
     }
 
     static get category() {
       return 'downloads'
     }
 
-    static get defaultBadgeData() {
-      return { label: 'downloads' }
-    }
-
     static get route() {
       return {
-        base: `wordpress/${extensionType}/dt`,
-        pattern: ':slug',
+        base: `wordpress/${extensionType}`,
+        pattern: ':interval(dd|dw|dm|dy|dt)/:slug',
       }
-    }
-    static get extensionType() {
-      return extensionType
     }
 
     static get examples() {
       return [
         {
-          title: `Wordpress ${capt} Downloads`,
-          namedParams: { slug: exampleSlug },
-          staticPreview: this.render({ response: { downloaded: 200000 } }),
+          title: `WordPress ${capt} Downloads`,
+          namedParams: { interval: 'dm', slug: exampleSlug },
+          staticPreview: this.render({ interval: 'dm', downloads: 200000 }),
         },
       ]
+    }
+
+    static get defaultBadgeData() {
+      return { label: 'downloads' }
+    }
+
+    static render({ interval, downloads }) {
+      const { messageSuffix } = intervalMap[interval]
+
+      return {
+        message: `${metric(downloads)}${messageSuffix}`,
+        color: downloadCount(downloads),
+      }
+    }
+
+    async handle({ interval, slug }) {
+      const { limit } = intervalMap[interval]
+      let downloads
+      if (limit === null) {
+        const { downloaded: _downloads } = await this.fetch({
+          extensionType,
+          slug,
+        })
+        downloads = _downloads
+      } else {
+        const ext_type = extensionType === 'plugin' ? 'plugin' : 'themes'
+        const json = await this._requestJson({
+          schema: dateSchema,
+          url: `https://api.wordpress.org/stats/${ext_type}/1.0/downloads.php`,
+          options: {
+            qs: {
+              slug,
+              limit,
+            },
+          },
+        })
+        const size = Object.keys(json).length
+        downloads = Object.values(json).reduce(
+          (a, b) => parseInt(a) + parseInt(b)
+        )
+        // This check is for non-existent and brand-new plugins both having new stats.
+        // Non-Existent plugins results are the same as a brandspanking new plugin with no downloads.
+        if (downloads <= 0 && size <= 1) {
+          throw new NotFound({
+            prettyMessage: `${extensionType} not found or too new`,
+          })
+        }
+      }
+
+      return this.constructor.render({ interval, downloads })
     }
   }
 }
@@ -66,23 +129,12 @@ function InstallsForExtensionType(extensionType) {
   const { capt, exampleSlug } = extensionData[extensionType]
 
   return class WordpressInstalls extends BaseWordpress {
-    static get extensionType() {
-      return extensionType
+    static get name() {
+      return `Wordpress${capt}Installs`
     }
 
     static get category() {
       return 'downloads'
-    }
-
-    static render({ response }) {
-      return {
-        message: `${metric(response.active_installs)}+`,
-        color: downloadCount(response.active_installs),
-      }
-    }
-
-    static get defaultBadgeData() {
-      return { label: 'active installs' }
     }
 
     static get route() {
@@ -95,101 +147,35 @@ function InstallsForExtensionType(extensionType) {
     static get examples() {
       return [
         {
-          title: `Wordpress ${capt} Active Installs`,
+          title: `WordPress ${capt} Active Installs`,
           namedParams: { slug: exampleSlug },
-          staticPreview: this.render({ response: { active_installs: 300000 } }),
+          staticPreview: this.render({ installCount: 300000 }),
         },
       ]
-    }
-  }
-}
-
-function DownloadsForInterval(interval) {
-  const { base, messageSuffix = '', query } = {
-    day: {
-      base: 'wordpress/plugin/dd',
-      messageSuffix: '/day',
-      query: 1,
-    },
-    week: {
-      base: 'wordpress/plugin/dw',
-      messageSuffix: '/week',
-      query: 7,
-    },
-    month: {
-      base: 'wordpress/plugin/dm',
-      messageSuffix: '/month',
-      query: 30,
-    },
-    year: {
-      base: 'wordpress/plugin/dy',
-      messageSuffix: '/year',
-      query: 365,
-    },
-  }[interval]
-
-  return class WordpressDownloads extends BaseJsonService {
-    static get category() {
-      return 'downloads'
     }
 
     static get defaultBadgeData() {
-      return { label: 'downloads' }
+      return { label: 'active installs' }
     }
 
-    static get route() {
+    static render({ installCount }) {
       return {
-        base,
-        pattern: ':slug',
-      }
-    }
-
-    static get examples() {
-      return [
-        {
-          title: 'WordPress Plugin Downloads',
-          namedParams: { slug: 'bbpress' },
-          staticPreview: this.render({ downloads: 30000 }),
-        },
-      ]
-    }
-
-    static render({ downloads }) {
-      return {
-        message: `${metric(downloads)}${messageSuffix}`,
-        color: downloadCount(downloads),
+        message: metric(installCount),
+        color: downloadCount(installCount),
       }
     }
 
     async handle({ slug }) {
-      const json = await this._requestJson({
-        schema: dateSchema,
-        url: `https://api.wordpress.org/stats/plugin/1.0/downloads.php`,
-        options: {
-          qs: {
-            slug,
-            limit: query,
-          },
-        },
+      const { active_installs: installCount } = await this.fetch({
+        extensionType,
+        slug,
       })
-      const size = Object.keys(json).length
-      const downloads = Object.values(json).reduce(
-        (a, b) => parseInt(a) + parseInt(b)
-      )
-      // This check is for non-existant and brand-new plugins both having new stats.
-      // Non-Existant plugins results are the same as a brandspanking new plugin with no downloads.
-      if (downloads <= 0 && size <= 1) {
-        throw new NotFound({ prettyMessage: 'plugin not found or too new' })
-      }
-      return this.constructor.render({ downloads })
+      return this.constructor.render({ installCount })
     }
   }
 }
 
-const intervalServices = ['day', 'week', 'month', 'year'].map(
-  DownloadsForInterval
-)
 const downloadServices = ['plugin', 'theme'].map(DownloadsForExtensionType)
 const installServices = ['plugin', 'theme'].map(InstallsForExtensionType)
-const modules = [...intervalServices, ...downloadServices, ...installServices]
+const modules = [...downloadServices, ...installServices]
 module.exports = modules

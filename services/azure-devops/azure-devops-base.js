@@ -1,6 +1,6 @@
 'use strict'
 
-const Joi = require('joi')
+const Joi = require('@hapi/joi')
 const { BaseJsonService, NotFound } = require('..')
 
 const latestBuildSchema = Joi.object({
@@ -42,6 +42,13 @@ const latestReleaseSchema = Joi.object({
 }).required()
 
 module.exports = class AzureDevOpsBase extends BaseJsonService {
+  static get auth() {
+    return {
+      passKey: 'azure_devops_token',
+      defaultToEmptyStringForUser: true,
+    }
+  }
+
   async fetch({ url, options, schema, errorMessages }) {
     return this._requestJson({
       schema,
@@ -56,7 +63,7 @@ module.exports = class AzureDevOpsBase extends BaseJsonService {
     project,
     definitionId,
     branch,
-    headers,
+    auth,
     errorMessages
   ) {
     const builInfo = await this.getLatestCompletedBuildInfo(
@@ -88,7 +95,7 @@ module.exports = class AzureDevOpsBase extends BaseJsonService {
         statusFilter: 'completed',
         'api-version': '5.0-preview.4',
       },
-      headers,
+      auth,
     }
 
     if (branch) {

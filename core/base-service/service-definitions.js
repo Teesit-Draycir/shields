@@ -1,10 +1,13 @@
 'use strict'
 
-const Joi = require('joi')
+const Joi = require('@hapi/joi')
+
+// This should be kept in sync with the schema in
+// `frontend/lib/service-definitions/index.ts`.
 
 const arrayOfStrings = Joi.array()
   .items(Joi.string())
-  .allow([])
+  .min(0)
   .required()
 
 const objectOfKeyValues = Joi.object()
@@ -63,6 +66,7 @@ const serviceDefinitionExport = Joi.object({
       Joi.object({
         id: Joi.string().required(),
         name: Joi.string().required(),
+        keywords: arrayOfStrings,
       })
     )
     .required(),

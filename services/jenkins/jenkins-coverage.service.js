@@ -1,175 +1,150 @@
 'use strict'
 
-const Joi = require('joi')
-const { BaseJsonService } = require('..')
-const serverSecrets = require('../../lib/server-secrets')
-
+const Joi = require('@hapi/joi')
+const { coveragePercentage } = require('../color-formatters')
+const JenkinsBase = require('./jenkins-base')
 const {
-  coveragePercentage: coveragePercentageColor,
-} = require('../../lib/color-formatters')
+  buildTreeParamQueryString,
+  buildUrl,
+  queryParamSchema,
+} = require('./jenkins-common')
 
-const jacocoCoverageSchema = Joi.object({
-  instructionCoverage: Joi.object({
-    percentage: Joi.number()
-      .min(0)
-      .max(100)
-      .required(),
-  }).required(),
-}).required()
-
-const coberturaCoverageSchema = Joi.object({
-  results: Joi.object({
-    elements: Joi.array()
-      .items(
-        Joi.object({
-          name: Joi.string().required(),
-          ratio: Joi.number()
-            .min(0)
-            .max(100)
-            .required(),
-        })
+const formatMap = {
+  jacoco: {
+    schema: Joi.object({
+      instructionCoverage: Joi.object({
+        percentage: Joi.number()
+          .min(0)
+          .max(100)
+          .required(),
+      }).required(),
+    }).required(),
+    treeQueryParam: 'instructionCoverage[percentage]',
+    transform: json => ({ coverage: json.instructionCoverage.percentage }),
+    pluginSpecificPath: 'jacoco',
+  },
+  cobertura: {
+    schema: Joi.object({
+      results: Joi.object({
+        elements: Joi.array()
+          .items(
+            Joi.object({
+              name: Joi.string().required(),
+              ratio: Joi.number()
+                .min(0)
+                .max(100)
+                .required(),
+            })
+          )
+          .has(Joi.object({ name: 'Lines' }))
+          .min(1)
+          .required(),
+      }).required(),
+    }).required(),
+    treeQueryParam: 'results[elements[name,ratio]]',
+    transform: json => {
+      const lineCoverage = json.results.elements.find(
+        element => element.name === 'Lines'
       )
-      .has(Joi.object({ name: 'Lines' }))
-      .min(1)
-      .required(),
-  }).required(),
-}).required()
+      return { coverage: lineCoverage.ratio }
+    },
+    pluginSpecificPath: 'cobertura',
+  },
+  api: {
+    schema: Joi.object({
+      results: Joi.object({
+        elements: Joi.array()
+          .items(
+            Joi.object({
+              name: Joi.string().required(),
+              ratio: Joi.number()
+                .min(0)
+                .max(100)
+                .required(),
+            })
+          )
+          .has(Joi.object({ name: 'Line' }))
+          .min(1)
+          .required(),
+      }).required(),
+    }).required(),
+    treeQueryParam: 'results[elements[name,ratio]]',
+    transform: json => {
+      const lineCoverage = json.results.elements.find(
+        element => element.name === 'Line'
+      )
+      return { coverage: lineCoverage.ratio }
+    },
+    pluginSpecificPath: 'coverage/result',
+  },
+}
 
-class BaseJenkinsCoverage extends BaseJsonService {
-  async fetch({ url, options, schema }) {
-    return this._requestJson({
-      url,
-      options,
-      schema,
-      errorMessages: {
-        404: 'job or coverage not found',
-      },
-    })
+const documentation = `
+<p>
+  We support coverage metrics from a variety of Jenkins plugins:
+  <ul>
+    <li><a href="https://plugins.jenkins.io/jacoco">JaCoCo</a></li>
+    <li><a href="https://plugins.jenkins.io/cobertura">Cobertura</a></li>
+    <li>Any plugin which integrates with the <a href="https://plugins.jenkins.io/code-coverage-api">Code Coverage API</a> (e.g. llvm-cov, Cobertura 1.13+, etc.)</li>
+  </ul>
+</p>
+`
+
+module.exports = class JenkinsCoverage extends JenkinsBase {
+  static get category() {
+    return 'coverage'
   }
 
-  static render({ coverage }) {
+  static get route() {
     return {
-      message: `${coverage.toFixed(0)}%`,
-      color: coveragePercentageColor(coverage),
+      base: 'jenkins/coverage',
+      pattern: ':format(jacoco|cobertura|api)',
+      queryParamSchema,
     }
+  }
+
+  static get examples() {
+    return [
+      {
+        title: 'Jenkins Coverage',
+        namedParams: {
+          format: 'cobertura',
+        },
+        queryParams: {
+          jobUrl: 'https://jenkins.sqlalchemy.org/job/alembic_coverage',
+        },
+        keywords: ['jacoco', 'cobertura', 'llvm-cov', 'istanbul'],
+        staticPreview: this.render({ coverage: 95 }),
+        documentation,
+      },
+    ]
   }
 
   static get defaultBadgeData() {
     return { label: 'coverage' }
   }
 
-  static get category() {
-    return 'coverage'
-  }
-
-  static buildUrl(scheme, host, job, plugin) {
-    return `${scheme}://${host}/job/${job}/lastBuild/${plugin}/api/json`
-  }
-
-  static buildOptions(treeParam) {
-    const options = {
-      qs: {
-        tree: treeParam,
-      },
-    }
-    if (serverSecrets.jenkins_user) {
-      options.auth = {
-        user: serverSecrets.jenkins_user,
-        pass: serverSecrets.jenkins_pass,
-      }
-    }
-    return options
-  }
-}
-
-class JacocoJenkinsCoverage extends BaseJenkinsCoverage {
-  async handle({ scheme, host, job }) {
-    const url = this.constructor.buildUrl(scheme, host, job, 'jacoco')
-    const options = this.constructor.buildOptions(
-      'instructionCoverage[percentage]'
-    )
-    const json = await this.fetch({
-      url,
-      options,
-      schema: jacocoCoverageSchema,
-    })
-    return this.constructor.render({
-      coverage: json.instructionCoverage.percentage,
-    })
-  }
-
-  static get route() {
+  static render({ coverage }) {
     return {
-      base: 'jenkins/j',
-      format: '(http(?:s)?)/([^/]+)/(?:job/)?(.+)',
-      capture: ['scheme', 'host', 'job'],
+      message: `${coverage.toFixed(0)}%`,
+      color: coveragePercentage(coverage),
     }
   }
 
-  static get examples() {
-    return [
-      {
-        title: 'Jenkins JaCoCo coverage',
-        pattern: ':scheme/:host/:job+',
-        namedParams: {
-          scheme: 'https',
-          host: 'builds.apache.org',
-          job: 'job/Derby-JaCoCo',
-        },
-        staticPreview: this.render({
-          coverage: 96,
-        }),
-      },
+  async handle({ format }, { jobUrl, disableStrictSSL }) {
+    const { schema, transform, treeQueryParam, pluginSpecificPath } = formatMap[
+      format
     ]
-  }
-}
-
-class CoberturaJenkinsCoverage extends BaseJenkinsCoverage {
-  async handle({ scheme, host, job }) {
-    const url = this.constructor.buildUrl(scheme, host, job, 'cobertura')
-    const options = this.constructor.buildOptions(
-      'results[elements[name,ratio]]'
-    )
     const json = await this.fetch({
-      url,
-      options,
-      schema: coberturaCoverageSchema,
-    })
-    const lineCoverage = json.results.elements.filter(
-      element => element.name === 'Lines'
-    )[0]
-    return this.constructor.render({
-      coverage: lineCoverage.ratio,
-    })
-  }
-
-  static get route() {
-    return {
-      base: 'jenkins/c',
-      format: '(http(?:s)?)/([^/]+)/(?:job/)?(.+)',
-      capture: ['scheme', 'host', 'job'],
-    }
-  }
-
-  static get examples() {
-    return [
-      {
-        title: 'Jenkins Cobertura coverage',
-        pattern: ':scheme/:host/:job+',
-        namedParams: {
-          scheme: 'https',
-          host: 'builds.apache.org',
-          job: 'job/olingo-odata4-cobertura',
-        },
-        staticPreview: this.render({
-          coverage: 94,
-        }),
+      url: buildUrl({ jobUrl, plugin: pluginSpecificPath }),
+      schema,
+      qs: buildTreeParamQueryString(treeQueryParam),
+      disableStrictSSL,
+      errorMessages: {
+        404: 'job or coverage not found',
       },
-    ]
+    })
+    const { coverage } = transform(json)
+    return this.constructor.render({ coverage })
   }
-}
-
-module.exports = {
-  JacocoJenkinsCoverage,
-  CoberturaJenkinsCoverage,
 }

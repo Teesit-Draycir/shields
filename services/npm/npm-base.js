@@ -1,9 +1,9 @@
 'use strict'
 
-const Joi = require('joi')
-const serverSecrets = require('../../lib/server-secrets')
-const { BaseJsonService, InvalidResponse, NotFound } = require('..')
+const Joi = require('@hapi/joi')
+const { optionalUrl } = require('../validators')
 const { isDependencyMap } = require('../package-json-helpers')
+const { BaseJsonService, InvalidResponse, NotFound } = require('..')
 
 const deprecatedLicenseObjectSchema = Joi.object({
   type: Joi.string().required(),
@@ -25,26 +25,38 @@ const packageDataSchema = Joi.object({
     .items(Joi.object({}))
     .required(),
   types: Joi.string(),
+  // `typings` is an alias for `types` and often used
+  // https://www.typescriptlang.org/docs/handbook/declaration-files/publishing.html#including-declarations-in-your-npm-package
+  // > Note that the "typings" field is synonymous with "types"
+  typings: Joi.string(),
   files: Joi.array()
     .items(Joi.string())
     .default([]),
 }).required()
 
+const queryParamSchema = Joi.object({
+  registry_uri: optionalUrl,
+}).required()
+
 // Abstract class for NPM badges which display data about the latest version
 // of a package.
 module.exports = class NpmBase extends BaseJsonService {
+  static get auth() {
+    return { passKey: 'npm_token' }
+  }
+
   static buildRoute(base, { withTag } = {}) {
     if (withTag) {
       return {
         base,
         pattern: ':scope(@[^/]+)?/:packageName/:tag?',
-        queryParams: ['registry_uri'],
+        queryParamSchema,
       }
     } else {
       return {
         base,
         pattern: ':scope(@[^/]+)?/:packageName',
-        queryParams: ['registry_uri'],
+        queryParamSchema,
       }
     }
   }
@@ -69,15 +81,16 @@ module.exports = class NpmBase extends BaseJsonService {
   }
 
   async _requestJson(data) {
-    // Use a custom Accept header because of this bug:
-    // <https://github.com/npm/npmjs.org/issues/163>
-    const headers = { Accept: '*/*' }
-    if (serverSecrets.npm_token) {
-      headers.Authorization = `Bearer ${serverSecrets.npm_token}`
-    }
     return super._requestJson({
       ...data,
-      options: { headers },
+      options: {
+        headers: {
+          // Use a custom Accept header because of this bug:
+          // <https://github.com/npm/npmjs.org/issues/163>
+          Accept: '*/*',
+          ...this.authHelper.bearerAuthHeader,
+        },
+      },
     })
   }
 
@@ -126,3 +139,5 @@ module.exports = class NpmBase extends BaseJsonService {
     return this.constructor._validate(packageData, packageDataSchema)
   }
 }
+
+module.exports.queryParamSchema = queryParamSchema

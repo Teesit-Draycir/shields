@@ -1,152 +1,56 @@
 'use strict'
 
-const Joi = require('joi')
 const { ServiceTester } = require('../tester')
 const {
   isMetric,
   isVPlusDottedVersionNClauses,
   isVPlusDottedVersionNClausesWithOptionalSuffix,
 } = require('../test-validators')
-const {
-  nuGetV2VersionJsonWithDash,
-  nuGetV2VersionJsonFirstCharZero,
-  nuGetV2VersionJsonFirstCharNotZero,
-} = require('../nuget-fixtures')
 
-const t = new ServiceTester({ id: 'resharper', title: 'ReSharper' })
-module.exports = t
+const t = (module.exports = new ServiceTester({
+  id: 'resharper',
+  title: 'ReSharper',
+}))
 
 // downloads
 
 t.create('total downloads (valid)')
   .get('/dt/ReSharper.Nuke.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'downloads',
-      value: isMetric,
-    })
-  )
+  .expectBadge({
+    label: 'downloads',
+    message: isMetric,
+  })
 
 t.create('total downloads (not found)')
   .get('/dt/not-a-real-package.json')
-  .expectJSON({ name: 'downloads', value: 'not found' })
+  .expectBadge({ label: 'downloads', message: 'not found' })
 
 // version
 
 t.create('version (valid)')
   .get('/v/ReSharper.Nuke.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'resharper',
-      value: isVPlusDottedVersionNClauses,
-    })
-  )
-
-t.create('version (mocked, yellow badge)')
-  .get('/v/ReSharper.Nuke.json?style=_shields_test')
-  .intercept(nock =>
-    nock('https://resharper-plugins.jetbrains.com')
-      .get(
-        '/api/v2/Packages()?%24filter=Id%20eq%20%27ReSharper.Nuke%27%20and%20IsLatestVersion%20eq%20true'
-      )
-      .reply(200, nuGetV2VersionJsonWithDash)
-  )
-  .expectJSON({
-    name: 'resharper',
-    value: 'v1.2-beta',
-    color: 'yellow',
-  })
-
-t.create('version (mocked, orange badge)')
-  .get('/v/ReSharper.Nuke.json?style=_shields_test')
-  .intercept(nock =>
-    nock('https://resharper-plugins.jetbrains.com')
-      .get(
-        '/api/v2/Packages()?%24filter=Id%20eq%20%27ReSharper.Nuke%27%20and%20IsLatestVersion%20eq%20true'
-      )
-      .reply(200, nuGetV2VersionJsonFirstCharZero)
-  )
-  .expectJSON({
-    name: 'resharper',
-    value: 'v0.35',
-    color: 'orange',
-  })
-
-t.create('version (mocked, blue badge)')
-  .get('/v/ReSharper.Nuke.json?style=_shields_test')
-  .intercept(nock =>
-    nock('https://resharper-plugins.jetbrains.com')
-      .get(
-        '/api/v2/Packages()?%24filter=Id%20eq%20%27ReSharper.Nuke%27%20and%20IsLatestVersion%20eq%20true'
-      )
-      .reply(200, nuGetV2VersionJsonFirstCharNotZero)
-  )
-  .expectJSON({
-    name: 'resharper',
-    value: 'v1.2.7',
-    color: 'blue',
+  .expectBadge({
+    label: 'resharper',
+    message: isVPlusDottedVersionNClauses,
   })
 
 t.create('version (not found)')
   .get('/v/not-a-real-package.json')
-  .expectJSON({ name: 'resharper', value: 'not found' })
+  .expectBadge({ label: 'resharper', message: 'not found' })
 
 // version (pre)
 
 t.create('version (pre) (valid)')
-  .get('/vpre/ReSharper.Nuke.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'resharper',
-      value: isVPlusDottedVersionNClausesWithOptionalSuffix,
-    })
-  )
-
-t.create('version (pre) (mocked, yellow badge)')
-  .get('/vpre/ReSharper.Nuke.json?style=_shields_test')
-  .intercept(nock =>
-    nock('https://resharper-plugins.jetbrains.com')
-      .get(
-        '/api/v2/Packages()?%24filter=Id%20eq%20%27ReSharper.Nuke%27%20and%20IsAbsoluteLatestVersion%20eq%20true'
-      )
-      .reply(200, nuGetV2VersionJsonWithDash)
-  )
-  .expectJSON({
-    name: 'resharper',
-    value: 'v1.2-beta',
-    color: 'yellow',
-  })
-
-t.create('version (pre) (mocked, orange badge)')
-  .get('/vpre/ReSharper.Nuke.json?style=_shields_test')
-  .intercept(nock =>
-    nock('https://resharper-plugins.jetbrains.com')
-      .get(
-        '/api/v2/Packages()?%24filter=Id%20eq%20%27ReSharper.Nuke%27%20and%20IsAbsoluteLatestVersion%20eq%20true'
-      )
-      .reply(200, nuGetV2VersionJsonFirstCharZero)
-  )
-  .expectJSON({
-    name: 'resharper',
-    value: 'v0.35',
-    color: 'orange',
-  })
-
-t.create('version (pre) (mocked, blue badge)')
-  .get('/vpre/ReSharper.Nuke.json?style=_shields_test')
-  .intercept(nock =>
-    nock('https://resharper-plugins.jetbrains.com')
-      .get(
-        '/api/v2/Packages()?%24filter=Id%20eq%20%27ReSharper.Nuke%27%20and%20IsAbsoluteLatestVersion%20eq%20true'
-      )
-      .reply(200, nuGetV2VersionJsonFirstCharNotZero)
-  )
-  .expectJSON({
-    name: 'resharper',
-    value: 'v1.2.7',
-    color: 'blue',
+  .get('/v/ReSharper.Nuke.json?include_prereleases')
+  .expectBadge({
+    label: 'resharper',
+    message: isVPlusDottedVersionNClausesWithOptionalSuffix,
   })
 
 t.create('version (pre) (not found)')
-  .get('/vpre/not-a-real-package.json')
-  .expectJSON({ name: 'resharper', value: 'not found' })
+  .get('/v/not-a-real-package.json?include_prereleases')
+  .expectBadge({ label: 'resharper', message: 'not found' })
+
+t.create('version (legacy redirect: vpre)')
+  .get('/vpre/ReSharper.Nuke.svg')
+  .expectRedirect('/resharper/v/ReSharper.Nuke.svg?include_prereleases')

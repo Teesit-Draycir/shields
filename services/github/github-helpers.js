@@ -1,18 +1,15 @@
 'use strict'
 
 const serverSecrets = require('../../lib/server-secrets')
-const { colorScale } = require('../../lib/color-formatters')
-const {
-  checkErrorResponse: standardCheckErrorResponse,
-} = require('../../lib/error-helper')
+const { colorScale } = require('../color-formatters')
+const { InvalidResponse, NotFound } = require('..')
 
 const documentation = `
 <p>
   If your GitHub badge errors, it might be because you hit GitHub's rate limits.
-  <br>
   You can increase Shields.io's rate limit by
-  <a href="https://img.shields.io/github-auth">going to this page</a> to add
-  Shields as a GitHub application on your GitHub account.
+  <a href="https://img.shields.io/github-auth">adding the Shields GitHub
+  application</a> using your GitHub account.
 </p>
 `
 
@@ -27,17 +24,12 @@ function errorMessagesFor(notFoundMessage = 'repo not found') {
   }
 }
 
-function checkErrorResponse(
-  badgeData,
-  err,
-  res,
-  notFoundMessage = 'repo not found',
-  errorMessages = {}
-) {
-  return standardCheckErrorResponse(badgeData, err, res, {
-    ...errorMessages,
-    ...errorMessagesFor(notFoundMessage),
-  })
+function transformErrors(errors) {
+  if (errors[0].type === 'NOT_FOUND') {
+    return new NotFound({ prettyMessage: 'repo not found' })
+  } else {
+    return new InvalidResponse({ prettyMessage: errors[0].message })
+  }
 }
 
 const commentsColor = colorScale([1, 3, 10, 25], undefined, true)
@@ -51,6 +43,6 @@ module.exports = {
   stateColor,
   commentsColor,
   errorMessagesFor,
-  checkErrorResponse,
+  transformErrors,
   staticAuthConfigured,
 }

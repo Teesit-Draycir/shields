@@ -1,8 +1,8 @@
 'use strict'
 
-const Joi = require('joi')
-const { BaseJsonService } = require('..')
+const Joi = require('@hapi/joi')
 const { nonNegativeInteger } = require('../validators')
+const { BaseJsonService } = require('..')
 
 const condaSchema = Joi.object({
   latest_version: Joi.string().required(),
@@ -19,14 +19,14 @@ const condaSchema = Joi.object({
 }).required()
 
 module.exports = class BaseCondaService extends BaseJsonService {
+  static get defaultBadgeData() {
+    return { label: 'conda' }
+  }
+
   async fetch({ channel, pkg }) {
     return this._requestJson({
       schema: condaSchema,
       url: `https://api.anaconda.org/package/${channel}/${pkg}`,
     })
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'conda' }
   }
 }

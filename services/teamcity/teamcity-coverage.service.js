@@ -1,9 +1,10 @@
 'use strict'
 
-const Joi = require('joi')
-const { coveragePercentage } = require('../../lib/color-formatters')
-const { InvalidResponse } = require('..')
+const Joi = require('@hapi/joi')
+const { coveragePercentage } = require('../color-formatters')
+const { optionalUrl } = require('../validators')
 const TeamCityBase = require('./teamcity-base')
+const { InvalidResponse } = require('..')
 
 const buildStatisticsSchema = Joi.object({
   property: Joi.array()
@@ -16,12 +17,38 @@ const buildStatisticsSchema = Joi.object({
     .required(),
 }).required()
 
+const queryParamSchema = Joi.object({
+  server: optionalUrl,
+}).required()
+
 module.exports = class TeamCityCoverage extends TeamCityBase {
-  static render({ coverage }) {
+  static get category() {
+    return 'coverage'
+  }
+
+  static get route() {
     return {
-      message: `${coverage.toFixed(0)}%`,
-      color: coveragePercentage(coverage),
+      base: 'teamcity/coverage',
+      pattern: ':buildId',
+      queryParamSchema,
     }
+  }
+
+  static get examples() {
+    return [
+      {
+        title: 'TeamCity Coverage',
+        namedParams: {
+          buildId: 'ReactJSNet_PullRequests',
+        },
+        queryParams: {
+          server: 'https://teamcity.jetbrains.com',
+        },
+        staticPreview: this.render({
+          coverage: 82,
+        }),
+      },
+    ]
   }
 
   static get defaultBadgeData() {
@@ -30,60 +57,11 @@ module.exports = class TeamCityCoverage extends TeamCityBase {
     }
   }
 
-  static get category() {
-    return 'coverage'
-  }
-
-  static get route() {
+  static render({ coverage }) {
     return {
-      base: 'teamcity/coverage',
-      format: '(?:(http|https)/(.+)/)?([^/]+)',
-      capture: ['protocol', 'hostAndPath', 'buildId'],
+      message: `${coverage.toFixed(0)}%`,
+      color: coveragePercentage(coverage),
     }
-  }
-
-  static get examples() {
-    return [
-      {
-        title: 'TeamCity Coverage (CodeBetter)',
-        pattern: ':buildId',
-        namedParams: {
-          buildId: 'ReactJSNet_PullRequests',
-        },
-        staticPreview: this.render({
-          coverage: 82,
-        }),
-      },
-      {
-        title: 'TeamCity Coverage',
-        pattern: ':protocol/:hostAndPath/s/:buildId',
-        namedParams: {
-          protocol: 'https',
-          hostAndPath: 'https/teamcity.jetbrains.com',
-          buildId: 'ReactJSNet_PullRequests',
-        },
-        staticPreview: this.render({
-          coverage: 95,
-        }),
-      },
-    ]
-  }
-
-  async handle({ protocol, hostAndPath, buildId }) {
-    // JetBrains Docs: https://confluence.jetbrains.com/display/TCD18/REST+API#RESTAPI-Statistics
-    const buildLocator = `buildType:(id:${buildId})`
-    const apiPath = `app/rest/builds/${encodeURIComponent(
-      buildLocator
-    )}/statistics`
-    const data = await this.fetch({
-      protocol,
-      hostAndPath,
-      apiPath,
-      schema: buildStatisticsSchema,
-    })
-
-    const { coverage } = this.transform({ data })
-    return this.constructor.render({ coverage })
   }
 
   transform({ data }) {
@@ -103,5 +81,20 @@ module.exports = class TeamCityCoverage extends TeamCityBase {
     }
 
     throw new InvalidResponse({ prettyMessage: 'no coverage data available' })
+  }
+
+  async handle({ buildId }, { server = 'https://teamcity.jetbrains.com' }) {
+    // JetBrains Docs: https://confluence.jetbrains.com/display/TCD18/REST+API#RESTAPI-Statistics
+    const buildLocator = `buildType:(id:${buildId})`
+    const apiPath = `app/rest/builds/${encodeURIComponent(
+      buildLocator
+    )}/statistics`
+    const data = await this.fetch({
+      url: `${server}/${apiPath}`,
+      schema: buildStatisticsSchema,
+    })
+
+    const { coverage } = this.transform({ data })
+    return this.constructor.render({ coverage })
   }
 }

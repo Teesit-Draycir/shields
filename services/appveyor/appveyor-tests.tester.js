@@ -1,6 +1,8 @@
 'use strict'
 
-const Joi = require('joi')
+const queryString = require('querystring')
+const Joi = require('@hapi/joi')
+const t = (module.exports = require('../tester').createServiceTester())
 
 const isAppveyorTestTotals = Joi.string().regex(
   /^[0-9]+ passed(, [0-9]+ failed)?(, [0-9]+ skipped)?$/
@@ -18,28 +20,20 @@ const isCompactCustomAppveyorTestTotals = Joi.string().regex(
   /^💃 [0-9]+( \| 🤦‍♀️ [0-9]+)?( \| 🤷 [0-9]+)?$/
 )
 
-const t = (module.exports = require('../tester').createServiceTester())
-
 t.create('Test status')
   .timeout(10000)
   .get('/NZSmartie/coap-net-iu0to.json')
-  .expectJSONTypes(
-    Joi.object().keys({ name: 'tests', value: isAppveyorTestTotals })
-  )
+  .expectBadge({ label: 'tests', message: isAppveyorTestTotals })
 
 t.create('Test status on branch')
   .timeout(10000)
   .get('/NZSmartie/coap-net-iu0to/master.json')
-  .expectJSONTypes(
-    Joi.object().keys({ name: 'tests', value: isAppveyorTestTotals })
-  )
+  .expectBadge({ label: 'tests', message: isAppveyorTestTotals })
 
 t.create('Test status with compact message')
   .timeout(10000)
   .get('/NZSmartie/coap-net-iu0to.json?compact_message')
-  .expectJSONTypes(
-    Joi.object().keys({ name: 'tests', value: isCompactAppveyorTestTotals })
-  )
+  .expectBadge({ label: 'tests', message: isCompactAppveyorTestTotals })
 
 t.create('Test status with custom labels')
   .timeout(10000)
@@ -50,37 +44,40 @@ t.create('Test status with custom labels')
       skipped_label: 'n/a',
     },
   })
-  .expectJSONTypes(
-    Joi.object().keys({ name: 'tests', value: isCustomAppveyorTestTotals })
-  )
+  .expectBadge({ label: 'tests', message: isCustomAppveyorTestTotals })
 
 t.create('Test status with compact message and custom labels')
   .timeout(10000)
-  .get('/NZSmartie/coap-net-iu0to.json', {
-    qs: {
+  .get(
+    `/NZSmartie/coap-net-iu0to.json?${queryString.stringify({
       compact_message: null,
       passed_label: '💃',
       failed_label: '🤦‍♀️',
       skipped_label: '🤷',
-    },
-  })
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'tests',
-      value: isCompactCustomAppveyorTestTotals,
-    })
+    })}`
   )
+  .expectBadge({
+    label: 'tests',
+    message: isCompactCustomAppveyorTestTotals,
+  })
 
 t.create('Test status on non-existent project')
   .timeout(10000)
   .get('/somerandomproject/thatdoesntexist.json')
-  .expectJSON({ name: 'tests', value: 'project not found or access denied' })
+  .expectBadge({
+    label: 'tests',
+    message: 'project not found or access denied',
+  })
 
 t.create('Test status on project that does exist but has no builds yet')
-  .get('/gruntjs/grunt.json?style=_shields_test')
+  .get('/gruntjs/grunt.json')
   .intercept(nock =>
     nock('https://ci.appveyor.com/api/projects/')
       .get('/gruntjs/grunt')
       .reply(200, {})
   )
-  .expectJSON({ name: 'tests', value: 'no builds found', color: 'lightgrey' })
+  .expectBadge({
+    label: 'tests',
+    message: 'no builds found',
+    color: 'lightgrey',
+  })

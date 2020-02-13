@@ -1,52 +1,73 @@
 'use strict'
 
-const Joi = require('joi')
+const { ServiceTester } = require('../tester')
 const { isDependencyState } = require('../test-validators')
+const t = (module.exports = new ServiceTester({
+  id: 'LibrariesIoDependencies',
+  title: 'LibrariesIoDependencies',
+  pathPrefix: '/librariesio',
+}))
 
-const t = (module.exports = require('../tester').createServiceTester())
-
-t.create('dependencies for releases')
-  .get('/release/hex/phoenix/1.0.3.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'dependencies',
-      value: isDependencyState,
-    })
-  )
-
-t.create('dependencies for releases (project name contains dot)')
+t.create('dependencies for package (project name contains dot)')
+  .timeout(10000)
   .get('/release/nuget/Newtonsoft.Json.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'dependencies',
-      value: isDependencyState,
-    })
-  )
-
-t.create('dependencies for github')
-  .get('/github/pyvesb/notepad4e.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'dependencies',
-      value: isDependencyState,
-    })
-  )
-
-t.create('release not found')
-  .get('/release/hex/invalid/4.0.4.json')
-  .expectJSON({
-    name: 'dependencies',
-    value: 'not available',
+  .expectBadge({
+    label: 'dependencies',
+    message: isDependencyState,
   })
 
-t.create('no response data')
-  .get('/github/phoenixframework/phoenix.json')
-  .intercept(nock =>
-    nock('https://libraries.io')
-      .get('/api/github/phoenixframework/phoenix/dependencies')
-      .reply(200)
-  )
-  .expectJSON({
-    name: 'dependencies',
-    value: 'invalid',
+t.create('dependencies for package with version')
+  .timeout(10000)
+  .get('/release/hex/phoenix/1.0.3.json')
+  .expectBadge({
+    label: 'dependencies',
+    message: isDependencyState,
+  })
+
+t.create('dependencies for scoped npm package')
+  .timeout(10000)
+  .get('/release/npm/@babel/core.json')
+  .expectBadge({
+    label: 'dependencies',
+    message: isDependencyState,
+  })
+
+t.create('dependencies for scoped npm package with version')
+  .timeout(10000)
+  .get('/release/npm/@babel/core/7.0.0-rc.0.json')
+  .expectBadge({
+    label: 'dependencies',
+    message: isDependencyState,
+  })
+
+t.create('version not found')
+  .timeout(10000)
+  .get('/release/hex/phoenix/9.9.99.json')
+  .expectBadge({
+    label: 'dependencies',
+    message: 'package or version not found',
+  })
+
+t.create('package not found')
+  .timeout(10000)
+  .get('/release/hex/invalid/4.0.4.json')
+  .expectBadge({
+    label: 'dependencies',
+    message: 'package or version not found',
+  })
+
+t.create('dependencies for repo')
+  .timeout(10000)
+  .get('/github/pyvesb/notepad4e.json')
+  .expectBadge({
+    label: 'dependencies',
+    message: isDependencyState,
+  })
+
+t.create('repo not found')
+  .timeout(10000)
+  .get('/github/foobar/is-not-a-repo.json')
+  .expectBadge({
+    label: 'dependencies',
+    message: 'repo not found',
   })

@@ -1,37 +1,51 @@
 'use strict'
 
-const { colorScale } = require('../../lib/color-formatters')
-const LibrariesIoBase = require('./librariesio-base')
+const { colorScale } = require('../color-formatters')
+const { fetchProject } = require('./librariesio-common')
+const { BaseJsonService } = require('..')
 
 const sourceRankColor = colorScale([10, 15, 20, 25, 30])
 
-class LibrariesIoSourcerank extends LibrariesIoBase {
+module.exports = class LibrariesIoSourcerank extends BaseJsonService {
   static get category() {
     return 'rating'
   }
 
-  static get defaultBadgeData() {
-    return {
-      label: 'sourcerank',
-    }
-  }
-
   static get route() {
-    return this.buildRoute('librariesio/sourcerank')
+    return {
+      base: 'librariesio/sourcerank',
+      pattern: ':platform/:scope(@[^/]+)?/:packageName',
+    }
   }
 
   static get examples() {
     return [
       {
         title: 'Libraries.io SourceRank',
-        pattern: ':platform/:library',
+        pattern: ':platform/:packageName',
         namedParams: {
           platform: 'npm',
-          library: 'got',
+          packageName: 'got',
         },
         staticPreview: this.render({ rank: 25 }),
       },
+      {
+        title: 'Libraries.io SourceRank, scoped npm package',
+        pattern: ':platform/:scope/:packageName',
+        namedParams: {
+          platform: 'npm',
+          scope: '@babel',
+          packageName: 'core',
+        },
+        staticPreview: this.render({ rank: 3 }),
+      },
     ]
+  }
+
+  static get defaultBadgeData() {
+    return {
+      label: 'sourcerank',
+    }
   }
 
   static render({ rank }) {
@@ -41,16 +55,12 @@ class LibrariesIoSourcerank extends LibrariesIoBase {
     }
   }
 
-  async handle({ platform, packageName }) {
-    const { rank } = await this.fetch(
-      {
-        platform,
-        packageName,
-      },
-      { allowPackages: true }
-    )
+  async handle({ platform, scope, packageName }) {
+    const { rank } = await fetchProject(this, {
+      platform,
+      scope,
+      packageName,
+    })
     return this.constructor.render({ rank })
   }
 }
-
-module.exports = LibrariesIoSourcerank

@@ -1,14 +1,13 @@
 'use strict'
 
 const moment = require('moment')
-const Joi = require('joi')
-const { BaseJsonService } = require('..')
+const Joi = require('@hapi/joi')
+const { nonNegativeInteger } = require('../validators')
 const renderQuestionsBadge = require('./stackexchange-helpers')
+const { BaseJsonService } = require('..')
 
 const tagSchema = Joi.object({
-  total: Joi.number()
-    .min(1)
-    .required(),
+  total: nonNegativeInteger,
 }).required()
 
 module.exports = class StackExchangeMonthlyQuestions extends BaseJsonService {
@@ -16,8 +15,11 @@ module.exports = class StackExchangeMonthlyQuestions extends BaseJsonService {
     return 'chat'
   }
 
-  static get defaultBadgeData() {
-    return { label: 'stackoverflow' }
+  static get route() {
+    return {
+      base: 'stackexchange',
+      pattern: ':stackexchangesite/qm/:query',
+    }
   }
 
   static get examples() {
@@ -35,11 +37,8 @@ module.exports = class StackExchangeMonthlyQuestions extends BaseJsonService {
     ]
   }
 
-  static get route() {
-    return {
-      base: 'stackexchange',
-      pattern: ':stackexchangesite/qm/:query',
-    }
+  static get defaultBadgeData() {
+    return { label: 'stackoverflow' }
   }
 
   static render(props) {

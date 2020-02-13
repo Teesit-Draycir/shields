@@ -1,36 +1,50 @@
 'use strict'
 
-const { metric } = require('../../lib/text-formatters')
-const LibrariesIoBase = require('./librariesio-base')
+const { metric } = require('../text-formatters')
+const { fetchProject } = require('./librariesio-common')
+const { BaseJsonService } = require('..')
 
 // https://libraries.io/api#project-dependents
-class LibrariesIoDependents extends LibrariesIoBase {
+module.exports = class LibrariesIoDependents extends BaseJsonService {
   static get category() {
     return 'other'
   }
 
-  static get defaultBadgeData() {
-    return {
-      label: 'dependents',
-    }
-  }
-
   static get route() {
-    return this.buildRoute('librariesio/dependents')
+    return {
+      base: 'librariesio/dependents',
+      pattern: ':platform/:scope(@[^/]+)?/:packageName',
+    }
   }
 
   static get examples() {
     return [
       {
         title: 'Dependents (via libraries.io)',
-        pattern: ':platform/:library',
+        pattern: ':platform/:packageName',
         namedParams: {
           platform: 'npm',
-          library: 'got',
+          packageName: 'got',
         },
         staticPreview: this.render({ dependentCount: 2000 }),
       },
+      {
+        title: 'Dependents (via libraries.io), scoped npm package',
+        pattern: ':platform/:scope/:packageName',
+        namedParams: {
+          platform: 'npm',
+          scope: '@babel',
+          packageName: 'core',
+        },
+        staticPreview: this.render({ dependentCount: 94 }),
+      },
     ]
+  }
+
+  static get defaultBadgeData() {
+    return {
+      label: 'dependents',
+    }
   }
 
   static render({ dependentCount }) {
@@ -40,16 +54,12 @@ class LibrariesIoDependents extends LibrariesIoBase {
     }
   }
 
-  async handle({ platform, packageName }) {
-    const { dependents_count: dependentCount } = await this.fetch(
-      {
-        platform,
-        packageName,
-      },
-      { allowPackages: true }
-    )
+  async handle({ platform, scope, packageName }) {
+    const { dependents_count: dependentCount } = await fetchProject(this, {
+      platform,
+      scope,
+      packageName,
+    })
     return this.constructor.render({ dependentCount })
   }
 }
-
-module.exports = LibrariesIoDependents

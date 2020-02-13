@@ -1,22 +1,28 @@
 'use strict'
 
-const Joi = require('joi')
 const { anyInteger } = require('../validators')
-
 const t = (module.exports = require('../tester').createServiceTester())
 
 t.create('sourcerank')
+  .timeout(10000)
   .get('/npm/got.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'sourcerank',
-      value: anyInteger,
-    })
-  )
+  .expectBadge({
+    label: 'sourcerank',
+    message: anyInteger,
+  })
 
-t.create('dependent count (not a package)')
+t.create('sourcerank (scoped npm package)')
+  .timeout(10000)
+  .get('/npm/@babel/core.json')
+  .expectBadge({
+    label: 'sourcerank',
+    message: anyInteger,
+  })
+
+t.create('sourcerank (not a package)')
+  .timeout(10000)
   .get('/npm/foobar-is-not-package.json')
-  .expectJSON({
-    name: 'sourcerank',
-    value: 'package not found',
+  .expectBadge({
+    label: 'sourcerank',
+    message: 'package not found',
   })

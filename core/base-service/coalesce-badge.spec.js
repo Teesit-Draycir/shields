@@ -15,9 +15,9 @@ describe('coalesceBadge', function() {
 
     // This behavior isn't great and we might want to remove it.
     it('uses the category as a default label', function() {
-      expect(coalesceBadge({}, {}, {}, { category: 'cat' }).text).to.deep.equal(
-        ['cat', 'n/a']
-      )
+      expect(
+        coalesceBadge({}, {}, {}, { category: 'cat' }).text
+      ).to.deep.equal(['cat', 'n/a'])
     })
 
     it('preserves an empty label', function() {
@@ -58,15 +58,27 @@ describe('coalesceBadge', function() {
 
     it('overrides the color', function() {
       expect(
-        coalesceBadge({ colorB: '10ADED' }, { color: 'red' }, {}).color
+        coalesceBadge({ color: '10ADED' }, { color: 'red' }, {}).color
       ).to.equal('10ADED')
+      // also expected for legacy name
+      expect(
+        coalesceBadge({ colorB: 'B0ADED' }, { color: 'red' }, {}).color
+      ).to.equal('B0ADED')
     })
 
     context('In case of an error', function() {
       it('does not override the color', function() {
         expect(
           coalesceBadge(
-            { colorB: '10ADED' },
+            { color: '10ADED' },
+            { isError: true, color: 'lightgray' },
+            {}
+          ).color
+        ).to.equal('lightgray')
+        // also expected for legacy name
+        expect(
+          coalesceBadge(
+            { colorB: 'B0ADED' },
             { isError: true, color: 'lightgray' },
             {}
           ).color
@@ -92,11 +104,25 @@ describe('coalesceBadge', function() {
 
     it('overrides the label color', function() {
       expect(
-        coalesceBadge({ colorA: '42f483' }, { color: 'green' }, {}).labelColor
+        coalesceBadge({ labelColor: '42f483' }, { color: 'green' }, {})
+          .labelColor
       ).to.equal('42f483')
+      // also expected for legacy name
+      expect(
+        coalesceBadge({ colorA: 'B2f483' }, { color: 'green' }, {}).labelColor
+      ).to.equal('B2f483')
     })
 
     it('converts a query-string numeric color to a string', function() {
+      expect(
+        coalesceBadge(
+          // Scoutcamp converts numeric query params to numbers.
+          { color: 123 },
+          { color: 'green' },
+          {}
+        ).color
+      ).to.equal('123')
+      // also expected for legacy name
       expect(
         coalesceBadge(
           // Scoutcamp converts numeric query params to numbers.
@@ -178,6 +204,14 @@ describe('coalesceBadge', function() {
         ).logo
       ).to.equal(getShieldsIcon({ name: 'npm', color: 'blue' })).and.not.be
         .empty
+    })
+
+    // https://github.com/badges/shields/issues/2998
+    it('overrides logoSvg', function() {
+      const logoSvg = 'data:image/svg+xml;base64,PHN2ZyB4bWxu'
+      expect(coalesceBadge({ logo: 'npm' }, { logoSvg }, {}).logo).to.equal(
+        getShieldsIcon({ name: 'npm' })
+      ).and.not.be.empty
     })
   })
 

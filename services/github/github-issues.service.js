@@ -1,21 +1,43 @@
 'use strict'
 
-const LegacyService = require('../legacy-service')
-const { makeBadgeData: getBadgeData } = require('../../lib/badge-data')
-const { makeLogo: getLogo } = require('../../lib/logos')
-const { metric } = require('../../lib/text-formatters')
-const {
-  documentation,
-  checkErrorResponse: githubCheckErrorResponse,
-} = require('./github-helpers')
+const gql = require('graphql-tag')
+const Joi = require('@hapi/joi')
+const { metric } = require('../text-formatters')
+const { nonNegativeInteger } = require('../validators')
+const { GithubAuthV4Service } = require('./github-auth-service')
+const { documentation, transformErrors } = require('./github-helpers')
 
-// This legacy service should be rewritten to use e.g. BaseJsonService.
-//
-// Tips for rewriting:
-// https://github.com/badges/shields/blob/master/doc/rewriting-services.md
-//
-// Do not base new services on this code.
-module.exports = class GithubIssues extends LegacyService {
+const issueCountSchema = Joi.object({
+  data: Joi.object({
+    repository: Joi.object({
+      issues: Joi.object({
+        totalCount: nonNegativeInteger,
+      }).required(),
+    }).required(),
+  }).required(),
+}).required()
+
+const pullRequestCountSchema = Joi.object({
+  data: Joi.object({
+    repository: Joi.object({
+      pullRequests: Joi.object({
+        totalCount: nonNegativeInteger,
+      }).required(),
+    }).required(),
+  }).required(),
+}).required()
+
+const isPRVariant = {
+  'issues-pr': true,
+  'issues-pr-closed': true,
+}
+
+const isClosedVariant = {
+  'issues-closed': true,
+  'issues-pr-closed': true,
+}
+
+module.exports = class GithubIssues extends GithubAuthV4Service {
   static get category() {
     return 'issue-tracking'
   }
@@ -24,7 +46,7 @@ module.exports = class GithubIssues extends LegacyService {
     return {
       base: 'github',
       pattern:
-        ':which(issues|issues-closed|issues-pr|issues-pr-closed)-:raw(raw)?/:user/:repo/:label?',
+        ':variant(issues|issues-closed|issues-pr|issues-pr-closed):raw(-raw)?/:user/:repo/:label*',
     }
   }
 
@@ -42,7 +64,6 @@ module.exports = class GithubIssues extends LegacyService {
           message: '167 open',
           color: 'yellow',
         },
-        keywords: ['issue'],
         documentation,
       },
       {
@@ -57,7 +78,6 @@ module.exports = class GithubIssues extends LegacyService {
           message: '167',
           color: 'yellow',
         },
-        keywords: ['issue'],
         documentation,
       },
       {
@@ -73,7 +93,6 @@ module.exports = class GithubIssues extends LegacyService {
           message: '110 open',
           color: 'yellow',
         },
-        keywords: ['issue', 'label'],
         documentation,
       },
       {
@@ -89,7 +108,6 @@ module.exports = class GithubIssues extends LegacyService {
           message: '110',
           color: 'yellow',
         },
-        keywords: ['issue', 'label'],
         documentation,
       },
       {
@@ -104,7 +122,6 @@ module.exports = class GithubIssues extends LegacyService {
           message: '899 closed',
           color: 'yellow',
         },
-        keywords: ['issue'],
         documentation,
       },
       {
@@ -119,7 +136,6 @@ module.exports = class GithubIssues extends LegacyService {
           message: '899',
           color: 'yellow',
         },
-        keywords: ['issue'],
         documentation,
       },
       {
@@ -195,7 +211,7 @@ module.exports = class GithubIssues extends LegacyService {
           message: '8 open',
           color: 'yellow',
         },
-        keywords: ['pullrequests', 'pr', 'label'],
+        keywords: ['pullrequests', 'pr'],
         documentation,
       },
       {
@@ -211,67 +227,128 @@ module.exports = class GithubIssues extends LegacyService {
           message: '8',
           color: 'yellow',
         },
-        keywords: ['pullrequests', 'pr', 'label'],
+        keywords: ['pullrequests', 'pr'],
         documentation,
       },
     ]
   }
 
-  static registerLegacyRouteHandler({ camp, cache, githubApiProvider }) {
-    camp.route(
-      /^\/github\/issues(-pr)?(-closed)?(-raw)?\/(?!detail)([^/]+)\/([^/]+)\/?(.+)?\.(svg|png|gif|jpg|json)$/,
-      cache((data, match, sendBadge, request) => {
-        const isPR = !!match[1]
-        const isClosed = !!match[2]
-        const isRaw = !!match[3]
-        const user = match[4] // eg, badges
-        const repo = match[5] // eg, shields
-        const ghLabel = match[6] // eg, website
-        const format = match[7]
-        const query = {}
-        const hasLabel = ghLabel !== undefined
+  static get defaultBadgeData() {
+    return {
+      label: 'issues',
+      color: 'informational',
+    }
+  }
 
-        query.q = `repo:${user}/${repo}${isPR ? ' is:pr' : ' is:issue'}${
-          isClosed ? ' is:closed' : ' is:open'
-        }${hasLabel ? ` label:"${ghLabel}"` : ''}`
+  static render({ isPR, isClosed, issueCount, raw, label }) {
+    const state = isClosed ? 'closed' : 'open'
 
-        const classText = isClosed ? 'closed' : 'open'
-        const leftClassText = isRaw ? `${classText} ` : ''
-        const rightClassText = !isRaw ? ` ${classText}` : ''
-        const isGhLabelMultiWord = hasLabel && ghLabel.includes(' ')
-        const labelText = hasLabel
-          ? `${isGhLabelMultiWord ? `"${ghLabel}"` : ghLabel} `
-          : ''
-        const targetText = isPR ? 'pull requests' : 'issues'
-        const badgeData = getBadgeData(
-          leftClassText + labelText + targetText,
-          data
-        )
-        if (badgeData.template === 'social') {
-          badgeData.logo = getLogo('github', data)
-        }
-        githubApiProvider.request(
-          request,
-          '/search/issues',
-          query,
-          (err, res, buffer) => {
-            if (githubCheckErrorResponse(badgeData, err, res)) {
-              sendBadge(format, badgeData)
-              return
-            }
-            try {
-              const data = JSON.parse(buffer)
-              const issues = data.total_count
-              badgeData.text[1] = metric(issues) + rightClassText
-              badgeData.colorscheme = issues > 0 ? 'yellow' : 'brightgreen'
-              sendBadge(format, badgeData)
-            } catch (e) {
-              badgeData.text[1] = 'invalid'
-              sendBadge(format, badgeData)
+    let labelPrefix = ''
+    let messageSuffix = ''
+    if (raw) {
+      labelPrefix = `${state} `
+    } else {
+      messageSuffix = state
+    }
+
+    const isGhLabelMultiWord = label && label.includes(' ')
+    const labelText = label
+      ? `${isGhLabelMultiWord ? `"${label}"` : label} `
+      : ''
+    const labelSuffix = isPR ? 'pull requests' : 'issues'
+
+    return {
+      label: `${labelPrefix}${labelText}${labelSuffix}`,
+      message: `${metric(issueCount)} ${messageSuffix}`,
+      color: issueCount > 0 ? 'yellow' : 'brightgreen',
+    }
+  }
+
+  async fetch({ isPR, isClosed, user, repo, label }) {
+    const commonVariables = {
+      user,
+      repo,
+      labels: label ? [label] : undefined,
+    }
+    if (isPR) {
+      const {
+        data: {
+          repository: {
+            pullRequests: { totalCount },
+          },
+        },
+      } = await this._requestGraphql({
+        query: gql`
+          query(
+            $user: String!
+            $repo: String!
+            $states: [PullRequestState!]
+            $labels: [String!]
+          ) {
+            repository(owner: $user, name: $repo) {
+              pullRequests(states: $states, labels: $labels) {
+                totalCount
+              }
             }
           }
-        )
+        `,
+        variables: {
+          ...commonVariables,
+          states: isClosed ? ['MERGED', 'CLOSED'] : ['OPEN'],
+        },
+        schema: pullRequestCountSchema,
+        transformErrors,
       })
-    )
+      return { issueCount: totalCount }
+    } else {
+      const {
+        data: {
+          repository: {
+            issues: { totalCount },
+          },
+        },
+      } = await this._requestGraphql({
+        query: gql`
+          query(
+            $user: String!
+            $repo: String!
+            $states: [IssueState!]
+            $labels: [String!]
+          ) {
+            repository(owner: $user, name: $repo) {
+              issues(states: $states, labels: $labels) {
+                totalCount
+              }
+            }
+          }
+        `,
+        variables: {
+          ...commonVariables,
+          states: isClosed ? ['CLOSED'] : ['OPEN'],
+        },
+        schema: issueCountSchema,
+        transformErrors,
+      })
+      return { issueCount: totalCount }
+    }
+  }
+
+  async handle({ variant, raw, user, repo, label }) {
+    const isPR = isPRVariant[variant]
+    const isClosed = isClosedVariant[variant]
+    const { issueCount } = await this.fetch({
+      isPR,
+      isClosed,
+      user,
+      repo,
+      label,
+    })
+    return this.constructor.render({
+      isPR,
+      isClosed,
+      issueCount,
+      raw,
+      label,
+    })
   }
 }

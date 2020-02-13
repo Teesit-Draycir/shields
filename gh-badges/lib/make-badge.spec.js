@@ -3,7 +3,6 @@
 const { test, given, forCases } = require('sazerac')
 const { expect } = require('chai')
 const snapshot = require('snap-shot-it')
-const eol = require('eol')
 const isSvg = require('is-svg')
 const makeBadge = require('./make-badge')
 
@@ -13,7 +12,6 @@ function testColor(color = '', colorAttr = 'colorB') {
       text: ['name', 'Bob'],
       [colorAttr]: color,
       format: 'json',
-      template: '_shields_test',
     })
   ).color
 }
@@ -64,7 +62,7 @@ describe('The badge generator', function() {
         given('almostred'),
         given('brightmaroon'),
         given('cactus')
-      ).expect(null)
+      ).expect(undefined)
     })
   })
 
@@ -94,27 +92,18 @@ describe('The badge generator', function() {
   })
 
   describe('JSON', function() {
-    it('should always produce the same JSON (unless we have changed something!)', function() {
-      const json = makeBadge({ text: ['cactus', 'grown'], format: 'json' })
-      const jsonWithLFEndings = eol.lf(json)
-      snapshot(jsonWithLFEndings)
-    })
-
-    it('should replace unknown json template with "default"', function() {
-      const jsonBadgeWithUnknownStyle = makeBadge({
-        text: ['name', 'Bob'],
+    it('should produce the expected JSON', function() {
+      const json = makeBadge({
+        text: ['cactus', 'grown'],
         format: 'json',
-        template: 'unknown_style',
+        links: ['https://example.com/', 'https://other.example.com/'],
       })
-      const jsonBadgeWithDefaultStyle = makeBadge({
-        text: ['name', 'Bob'],
-        format: 'json',
-        template: 'default',
-      })
-      expect(jsonBadgeWithUnknownStyle).to.equal(jsonBadgeWithDefaultStyle)
-      expect(JSON.parse(jsonBadgeWithUnknownStyle)).to.deep.equal({
-        name: 'name',
-        value: 'Bob',
+      expect(JSON.parse(json)).to.deep.equal({
+        name: 'cactus',
+        label: 'cactus',
+        value: 'grown',
+        message: 'grown',
+        link: ['https://example.com/', 'https://other.example.com/'],
       })
     })
 
@@ -128,6 +117,22 @@ describe('The badge generator', function() {
         text: ['name', 'Bob'],
         format: 'svg',
         template: 'flat',
+      })
+      expect(jsonBadgeWithUnknownStyle)
+        .to.equal(jsonBadgeWithDefaultStyle)
+        .and.to.satisfy(isSvg)
+    })
+
+    it('should replace "popout-square" svg template with "flat-square"', function() {
+      const jsonBadgeWithUnknownStyle = makeBadge({
+        text: ['name', 'Bob'],
+        format: 'svg',
+        template: 'popout-square',
+      })
+      const jsonBadgeWithDefaultStyle = makeBadge({
+        text: ['name', 'Bob'],
+        format: 'svg',
+        template: 'flat-square',
       })
       expect(jsonBadgeWithUnknownStyle)
         .to.equal(jsonBadgeWithDefaultStyle)

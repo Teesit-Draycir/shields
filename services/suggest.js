@@ -22,8 +22,14 @@ function twitterPage(url) {
     link: `https://twitter.com/intent/tweet?text=Wow:&url=${encodeURIComponent(
       url.href
     )}`,
-    path: `/twitter/url/${schema}/${host}${path}`,
-    queryParams: { style: 'social' },
+    example: {
+      pattern: '/twitter/url',
+      namedParams: {},
+      queryParams: { url: `${schema}://${host}${path}` },
+    },
+    preview: {
+      style: 'social',
+    },
   }
 }
 
@@ -32,7 +38,11 @@ function githubIssues(user, repo) {
   return {
     title: 'GitHub issues',
     link: `https://github.com/${repoSlug}/issues`,
-    path: `/github/issues/${repoSlug}`,
+    example: {
+      pattern: '/github/issues/:user/:repo',
+      namedParams: { user, repo },
+      queryParams: {},
+    },
   }
 }
 
@@ -41,7 +51,11 @@ function githubForks(user, repo) {
   return {
     title: 'GitHub forks',
     link: `https://github.com/${repoSlug}/network`,
-    path: `/github/forks/${repoSlug}`,
+    example: {
+      pattern: '/github/forks/:user/:repo',
+      namedParams: { user, repo },
+      queryParams: {},
+    },
   }
 }
 
@@ -50,7 +64,11 @@ function githubStars(user, repo) {
   return {
     title: 'GitHub stars',
     link: `https://github.com/${repoSlug}/stargazers`,
-    path: `/github/stars/${repoSlug}`,
+    example: {
+      pattern: '/github/stars/:user/:repo',
+      namedParams: { user, repo },
+      queryParams: {},
+    },
   }
 }
 
@@ -72,23 +90,44 @@ async function githubLicense(githubApiProvider, user, repo) {
 
   return {
     title: 'GitHub license',
-    path: `/github/license/${repoSlug}`,
     link,
+    example: {
+      pattern: '/github/license/:user/:repo',
+      namedParams: { user, repo },
+      queryParams: {},
+    },
+  }
+}
+
+function gitlabPipeline(user, repo) {
+  const repoSlug = `${user}/${repo}`
+  return {
+    title: 'GitLab pipeline',
+    link: `https://gitlab.com/${repoSlug}/builds`,
+    example: {
+      pattern: '/gitlab/pipeline/:user/:repo',
+      namedParams: { user, repo },
+      queryParams: {},
+    },
   }
 }
 
 async function findSuggestions(githubApiProvider, url) {
   let promises = []
-  if (url.hostname === 'github.com') {
+  if (url.hostname === 'github.com' || url.hostname === 'gitlab.com') {
     const userRepo = url.pathname.slice(1).split('/')
     const user = userRepo[0]
     const repo = userRepo[1]
-    promises = promises.concat([
-      githubIssues(user, repo),
-      githubForks(user, repo),
-      githubStars(user, repo),
-      githubLicense(githubApiProvider, user, repo),
-    ])
+    if (url.hostname === 'github.com') {
+      promises = promises.concat([
+        githubIssues(user, repo),
+        githubForks(user, repo),
+        githubStars(user, repo),
+        githubLicense(githubApiProvider, user, repo),
+      ])
+    } else {
+      promises = promises.concat([gitlabPipeline(user, repo)])
+    }
   }
   promises.push(twitterPage(url))
 
@@ -101,9 +140,14 @@ async function findSuggestions(githubApiProvider, url) {
 // end: function(json), with json of the form:
 //  - suggestions: list of objects of the form:
 //    - title: string
-//    - link: target as a string URL.
-//    - path: shields image URL path.
-//    - queryParams: Object containing query params (Optional)
+//    - link: target as a string URL
+//    - example: object
+//      - pattern: string
+//      - namedParams: object
+//      - queryParams: object (optional)
+//        - link: target as a string URL
+//    - preview: object (optional)
+//      - style: string
 function setRoutes(allowedOrigin, githubApiProvider, server) {
   server.ajax.on('suggest/v1', (data, end, ask) => {
     // The typical dev and production setups are cross-origin. However, in

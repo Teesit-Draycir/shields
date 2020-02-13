@@ -1,8 +1,8 @@
 'use strict'
 
+const { starRating } = require('../text-formatters')
+const { floorCount } = require('../color-formatters')
 const VisualStudioMarketplaceBase = require('./visual-studio-marketplace-base')
-const { starRating } = require('../../lib/text-formatters')
-const { floorCount } = require('../../lib/color-formatters')
 
 module.exports = class VisualStudioMarketplaceRating extends VisualStudioMarketplaceBase {
   static get category() {
@@ -14,23 +14,6 @@ module.exports = class VisualStudioMarketplaceRating extends VisualStudioMarketp
       base: '',
       pattern:
         '(visual-studio-marketplace|vscode-marketplace)/:format(r|stars)/:extensionId',
-    }
-  }
-
-  static get defaultBadgeData() {
-    return {
-      label: 'rating',
-    }
-  }
-
-  static render({ format, averageRating, ratingCount }) {
-    const message =
-      format === 'r'
-        ? `${averageRating.toFixed(1)}/5 (${ratingCount})`
-        : starRating(averageRating)
-    return {
-      message,
-      color: floorCount(averageRating, 2, 3, 4),
     }
   }
 
@@ -58,6 +41,23 @@ module.exports = class VisualStudioMarketplaceRating extends VisualStudioMarketp
         keywords: this.keywords,
       },
     ]
+  }
+
+  static get defaultBadgeData() {
+    return {
+      label: 'rating',
+    }
+  }
+
+  static render({ format, averageRating, ratingCount }) {
+    const message =
+      format === 'r'
+        ? `${averageRating.toFixed(1)}/5 (${ratingCount})`
+        : starRating(averageRating)
+    return {
+      message,
+      color: floorCount(averageRating, 2, 3, 4),
+    }
   }
 
   async handle({ format, extensionId }) {

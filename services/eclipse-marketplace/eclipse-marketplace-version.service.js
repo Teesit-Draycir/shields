@@ -1,8 +1,8 @@
 'use strict'
 
-const Joi = require('joi')
+const Joi = require('@hapi/joi')
+const { renderVersionBadge } = require('../version')
 const EclipseMarketplaceBase = require('./eclipse-marketplace-base')
-const { renderVersionBadge } = require('../../lib/version')
 
 const versionResponseSchema = Joi.object({
   marketplace: Joi.object({
@@ -17,8 +17,8 @@ module.exports = class EclipseMarketplaceVersion extends EclipseMarketplaceBase 
     return 'version'
   }
 
-  static get defaultBadgeData() {
-    return { label: 'eclipse marketplace' }
+  static get route() {
+    return this.buildRoute('eclipse-marketplace/v')
   }
 
   static get examples() {
@@ -31,8 +31,8 @@ module.exports = class EclipseMarketplaceVersion extends EclipseMarketplaceBase 
     ]
   }
 
-  static get route() {
-    return this.buildRoute('eclipse-marketplace/v')
+  static get defaultBadgeData() {
+    return { label: 'eclipse marketplace' }
   }
 
   static render({ version }) {

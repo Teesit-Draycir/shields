@@ -1,10 +1,10 @@
 'use strict'
 
-const Joi = require('joi')
-const { metric } = require('../../lib/text-formatters')
-const { downloadCount } = require('../../lib/color-formatters')
-const { BaseJsonService } = require('..')
+const Joi = require('@hapi/joi')
+const { metric } = require('../text-formatters')
+const { downloadCount } = require('../color-formatters')
 const { nonNegativeInteger } = require('../validators')
+const { BaseJsonService } = require('..')
 
 const keywords = ['sublime', 'sublimetext', 'packagecontrol']
 
@@ -26,7 +26,7 @@ const schema = Joi.object({
 })
 
 function DownloadsForInterval(interval) {
-  const { base, messageSuffix, transform } = {
+  const { base, messageSuffix, transform, name } = {
     day: {
       base: 'packagecontrol/dd',
       messageSuffix: '/day',
@@ -39,6 +39,7 @@ function DownloadsForInterval(interval) {
         })
         return downloads
       },
+      name: 'PackageControlDownloadsDay',
     },
     week: {
       base: 'packagecontrol/dw',
@@ -54,6 +55,7 @@ function DownloadsForInterval(interval) {
         })
         return downloads
       },
+      name: 'PackageControlDownloadsWeek',
     },
     month: {
       base: 'packagecontrol/dm',
@@ -69,34 +71,19 @@ function DownloadsForInterval(interval) {
         })
         return downloads
       },
+      name: 'PackageControlDownloadsMonth',
     },
     total: {
       base: 'packagecontrol/dt',
       messageSuffix: '',
       transform: resp => resp.installs.total,
+      name: 'PackageControlDownloadsTotal',
     },
   }[interval]
 
   return class PackageControlDownloads extends BaseJsonService {
-    static render({ downloads }) {
-      return {
-        message: `${metric(downloads)}${messageSuffix}`,
-        color: downloadCount(downloads),
-      }
-    }
-
-    async fetch({ packageName }) {
-      const url = `https://packagecontrol.io/packages/${packageName}.json`
-      return this._requestJson({ schema, url })
-    }
-
-    async handle({ packageName }) {
-      const data = await this.fetch({ packageName })
-      return this.constructor.render({ downloads: transform(data) })
-    }
-
-    static get defaultBadgeData() {
-      return { label: 'downloads' }
+    static get name() {
+      return name
     }
 
     static get category() {
@@ -116,6 +103,27 @@ function DownloadsForInterval(interval) {
           keywords,
         },
       ]
+    }
+
+    static get defaultBadgeData() {
+      return { label: 'downloads' }
+    }
+
+    static render({ downloads }) {
+      return {
+        message: `${metric(downloads)}${messageSuffix}`,
+        color: downloadCount(downloads),
+      }
+    }
+
+    async fetch({ packageName }) {
+      const url = `https://packagecontrol.io/packages/${packageName}.json`
+      return this._requestJson({ schema, url })
+    }
+
+    async handle({ packageName }) {
+      const data = await this.fetch({ packageName })
+      return this.constructor.render({ downloads: transform(data) })
     }
   }
 }

@@ -10,10 +10,6 @@ module.exports = class NpmTypeDefinitions extends NpmBase {
     return 'platform-support'
   }
 
-  static get defaultBadgeData() {
-    return { label: 'types' }
-  }
-
   static get route() {
     return this.buildRoute('npm/types', { withTag: false })
   }
@@ -32,11 +28,27 @@ module.exports = class NpmTypeDefinitions extends NpmBase {
     ]
   }
 
-  static transform({ devDependencies, types, files }) {
+  static get defaultBadgeData() {
+    return { label: 'types' }
+  }
+
+  static render({ supportedLanguages }) {
+    if (supportedLanguages.length === 0) {
+      return { message: 'none', color: 'lightgray' }
+    } else {
+      return {
+        message: supportedLanguages.sort().join(' | '),
+        color: 'blue',
+      }
+    }
+  }
+
+  static transform({ devDependencies, types, typings, files }) {
     const supportedLanguages = []
 
     if (
       types !== undefined ||
+      typings !== undefined ||
       devDependencies.typescript !== undefined ||
       files.includes('index.d.ts')
     ) {
@@ -51,17 +63,6 @@ module.exports = class NpmTypeDefinitions extends NpmBase {
     }
 
     return { supportedLanguages }
-  }
-
-  static render({ supportedLanguages }) {
-    if (supportedLanguages.length === 0) {
-      return { message: 'none', color: 'lightgray' }
-    } else {
-      return {
-        message: supportedLanguages.sort().join(' | '),
-        color: 'blue',
-      }
-    }
   }
 
   async handle(namedParams, queryParams) {

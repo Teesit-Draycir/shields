@@ -1,24 +1,51 @@
 'use strict'
 
-const { starRating, metric } = require('../../lib/text-formatters')
-const { floorCount } = require('../../lib/color-formatters')
+const { starRating, metric } = require('../text-formatters')
+const { floorCount } = require('../color-formatters')
 const { BaseSpigetService, documentation, keywords } = require('./spiget-base')
 
 module.exports = class SpigetRatings extends BaseSpigetService {
+  static get category() {
+    return 'rating'
+  }
+
   static get route() {
     return {
       base: 'spiget',
-      pattern: ':format(rating|stars)/:resourceid',
+      pattern: ':format(rating|stars)/:resourceId',
     }
   }
 
-  async handle({ format, resourceid }) {
-    const { rating } = await this.fetch({ resourceid })
-    return this.constructor.render({
-      format,
-      total: rating.count,
-      average: rating.average,
-    })
+  static get examples() {
+    return [
+      {
+        title: 'Spiget Stars',
+        pattern: 'stars/:resourceId',
+        namedParams: {
+          resourceId: '9089',
+        },
+        staticPreview: this.render({
+          format: 'stars',
+          total: 325,
+          average: 4.5,
+        }),
+        documentation,
+      },
+      {
+        title: 'Spiget Rating',
+        pattern: 'rating/:resourceId',
+        namedParams: {
+          resourceId: '9089',
+        },
+        staticPreview: this.render({ total: 325, average: 4.5 }),
+        documentation,
+        keywords,
+      },
+    ]
+  }
+
+  static get defaultBadgeData() {
+    return { label: 'rating' }
   }
 
   static render({ format, total, average }) {
@@ -32,39 +59,12 @@ module.exports = class SpigetRatings extends BaseSpigetService {
     }
   }
 
-  static get category() {
-    return 'rating'
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'rating' }
-  }
-
-  static get examples() {
-    return [
-      {
-        title: 'Spiget Stars',
-        pattern: 'stars/:resourceid',
-        namedParams: {
-          resourceid: '9089',
-        },
-        staticPreview: this.render({
-          format: 'stars',
-          total: 325,
-          average: 4.5,
-        }),
-        documentation,
-      },
-      {
-        title: 'Spiget Rating',
-        pattern: 'rating/:resourceid',
-        namedParams: {
-          resourceid: '9089',
-        },
-        staticPreview: this.render({ total: 325, average: 4.5 }),
-        documentation,
-        keywords,
-      },
-    ]
+  async handle({ format, resourceId }) {
+    const { rating } = await this.fetch({ resourceId })
+    return this.constructor.render({
+      format,
+      total: rating.count,
+      average: rating.average,
+    })
   }
 }

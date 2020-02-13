@@ -1,9 +1,7 @@
 'use strict'
 
-const { metric, addv } = require('../../lib/text-formatters')
-const {
-  downloadCount: downloadCountColor,
-} = require('../../lib/color-formatters')
+const { metric, addv } = require('../text-formatters')
+const { downloadCount: downloadCountColor } = require('../color-formatters')
 
 function renderVersionBadge({ version, feed }) {
   let color
@@ -29,7 +27,21 @@ function renderDownloadBadge({ downloads }) {
   }
 }
 
+function odataToObject(odata) {
+  if (odata === undefined) {
+    return undefined
+  }
+
+  const result = {}
+  Object.entries(odata['m:properties']).forEach(([key, value]) => {
+    const newKey = key.replace(/^d:/, '')
+    result[newKey] = value
+  })
+  return result
+}
+
 module.exports = {
   renderVersionBadge,
   renderDownloadBadge,
+  odataToObject,
 }

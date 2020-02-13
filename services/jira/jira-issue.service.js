@@ -1,7 +1,13 @@
 'use strict'
 
-const Joi = require('joi')
-const JiraBase = require('./jira-base')
+const Joi = require('@hapi/joi')
+const { optionalUrl } = require('../validators')
+const { authConfig } = require('./jira-common')
+const { BaseJsonService } = require('..')
+
+const queryParamSchema = Joi.object({
+  baseUrl: optionalUrl.required(),
+}).required()
 
 const schema = Joi.object({
   fields: Joi.object({
@@ -14,7 +20,46 @@ const schema = Joi.object({
   }).required(),
 }).required()
 
-module.exports = class JiraIssue extends JiraBase {
+module.exports = class JiraIssue extends BaseJsonService {
+  static get category() {
+    return 'issue-tracking'
+  }
+
+  static get route() {
+    return {
+      base: 'jira/issue',
+      pattern: ':issueKey',
+      queryParamSchema,
+    }
+  }
+
+  static get auth() {
+    return authConfig
+  }
+
+  static get examples() {
+    return [
+      {
+        title: 'JIRA issue',
+        namedParams: {
+          issueKey: 'KAFKA-2896',
+        },
+        queryParams: {
+          baseUrl: 'https://issues.apache.org/jira',
+        },
+        staticPreview: this.render({
+          issueKey: 'KAFKA-2896',
+          statusName: 'Resolved',
+          statusColor: 'green',
+        }),
+      },
+    ]
+  }
+
+  static get defaultBadgeData() {
+    return { color: 'lightgrey', label: 'jira' }
+  }
+
   static render({ issueKey, statusName, statusColor }) {
     let color = 'lightgrey'
     if (statusColor) {
@@ -36,49 +81,15 @@ module.exports = class JiraIssue extends JiraBase {
     }
   }
 
-  static get defaultBadgeData() {
-    return { color: 'lightgrey', label: 'jira' }
-  }
-
-  static get route() {
-    return {
-      base: 'jira/issue',
-      pattern: ':protocol(http|https)/:hostAndPath(.+)/:issueKey',
-    }
-  }
-
-  static get examples() {
-    return [
-      {
-        title: 'JIRA issue',
-        pattern: ':protocol/:hostAndPath/:issueKey',
-        namedParams: {
-          protocol: 'https',
-          hostAndPath: 'issues.apache.org/jira',
-          issueKey: 'KAFKA-2896',
-        },
-        staticPreview: this.render({
-          issueKey: 'KAFKA-2896',
-          statusName: 'Resolved',
-          statusColor: 'green',
-        }),
-        keywords: ['jira', 'issue'],
-      },
-    ]
-  }
-
-  async handle({ protocol, hostAndPath, issueKey }) {
+  async handle({ issueKey }, { baseUrl }) {
     // Atlassian Documentation: https://developer.atlassian.com/cloud/jira/platform/rest/v2/#api-api-2-issue-issueIdOrKey-get
-    const url = `${protocol}://${hostAndPath}/rest/api/2/issue/${encodeURIComponent(
-      issueKey
-    )}`
-    const json = await this.fetch({
-      url,
+    const json = await this._requestJson({
       schema,
-      errorMessages: {
-        404: 'issue not found',
-      },
+      url: `${baseUrl}/rest/api/2/issue/${encodeURIComponent(issueKey)}`,
+      options: { auth: this.authHelper.basicAuth },
+      errorMessages: { 404: 'issue not found' },
     })
+
     const issueStatus = json.fields.status
     const statusName = issueStatus.name
     let statusColor

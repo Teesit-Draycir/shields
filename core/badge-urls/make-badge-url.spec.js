@@ -6,6 +6,8 @@ const {
   badgeUrlFromPattern,
   encodeField,
   staticBadgeUrl,
+  queryStringStaticBadgeUrl,
+  dynamicBadgeUrl,
 } = require('./make-badge-url')
 
 describe('Badge URL generation functions', function() {
@@ -16,7 +18,7 @@ describe('Badge URL generation functions', function() {
       style: 'flat-square',
       longCache: true,
     }).expect(
-      'http://example.com/npm/v/gh-badges.svg?maxAge=2592000&style=flat-square'
+      'http://example.com/npm/v/gh-badges?cacheSeconds=2592000&style=flat-square'
     )
   })
 
@@ -28,7 +30,7 @@ describe('Badge URL generation functions', function() {
       style: 'flat-square',
       longCache: true,
     }).expect(
-      'http://example.com/npm/v/gh-badges.svg?maxAge=2592000&style=flat-square'
+      'http://example.com/npm/v/gh-badges?cacheSeconds=2592000&style=flat-square'
     )
   })
 
@@ -46,7 +48,7 @@ describe('Badge URL generation functions', function() {
       message: 'bar',
       color: 'blue',
       style: 'flat-square',
-    }).expect('/badge/foo-bar-blue.svg?style=flat-square')
+    }).expect('/badge/foo-bar-blue?style=flat-square')
     given({
       label: 'foo',
       message: 'bar',
@@ -60,23 +62,96 @@ describe('Badge URL generation functions', function() {
       message: 'Привет Мир',
       color: '#aabbcc',
     }).expect(
-      '/badge/Hello%20World-%D0%9F%D1%80%D0%B8%D0%B2%D0%B5%D1%82%20%D0%9C%D0%B8%D1%80-%23aabbcc.svg'
+      '/badge/Hello%20World-%D0%9F%D1%80%D0%B8%D0%B2%D0%B5%D1%82%20%D0%9C%D0%B8%D1%80-%23aabbcc'
     )
     given({
       label: '123-123',
       message: 'abc-abc',
       color: 'blue',
-    }).expect('/badge/123--123-abc--abc-blue.svg')
+    }).expect('/badge/123--123-abc--abc-blue')
     given({
       label: '123-123',
       message: '',
       color: 'blue',
       style: 'social',
-    }).expect('/badge/123--123--blue.svg?style=social')
+    }).expect('/badge/123--123--blue?style=social')
     given({
       label: '',
       message: 'blue',
       color: 'blue',
-    }).expect('/badge/-blue-blue.svg')
+    }).expect('/badge/-blue-blue')
+  })
+
+  test(queryStringStaticBadgeUrl, () => {
+    // the query-string library sorts parameters by name
+    given({
+      label: 'foo',
+      message: 'bar',
+      color: 'blue',
+      style: 'flat-square',
+    }).expect('/static/v1?color=blue&label=foo&message=bar&style=flat-square')
+    given({
+      label: 'foo Bar',
+      message: 'bar Baz',
+      color: 'blue',
+      style: 'flat-square',
+      format: 'png',
+      namedLogo: 'github',
+    }).expect(
+      '/static/v1.png?color=blue&label=foo%20Bar&logo=github&message=bar%20Baz&style=flat-square'
+    )
+    given({
+      label: 'Hello World',
+      message: 'Привет Мир',
+      color: '#aabbcc',
+    }).expect(
+      '/static/v1?color=%23aabbcc&label=Hello%20World&message=%D0%9F%D1%80%D0%B8%D0%B2%D0%B5%D1%82%20%D0%9C%D0%B8%D1%80'
+    )
+  })
+
+  test(dynamicBadgeUrl, () => {
+    const dataUrl = 'http://example.com/foo.json'
+    const query = '$.bar'
+    const prefix = 'value: '
+    given({
+      baseUrl: 'http://img.example.com',
+      datatype: 'json',
+      label: 'foo',
+      dataUrl,
+      query,
+      prefix,
+      style: 'plastic',
+    }).expect(
+      [
+        'http://img.example.com/badge/dynamic/json',
+        '?label=foo',
+        `&prefix=${encodeURIComponent(prefix)}`,
+        `&query=${encodeURIComponent(query)}`,
+        '&style=plastic',
+        `&url=${encodeURIComponent(dataUrl)}`,
+      ].join('')
+    )
+    const suffix = '<- value'
+    const color = 'blue'
+    given({
+      baseUrl: 'http://img.example.com',
+      datatype: 'json',
+      label: 'foo',
+      dataUrl,
+      query,
+      suffix,
+      color,
+      style: 'plastic',
+    }).expect(
+      [
+        'http://img.example.com/badge/dynamic/json',
+        '?color=blue',
+        '&label=foo',
+        `&query=${encodeURIComponent(query)}`,
+        '&style=plastic',
+        `&suffix=${encodeURIComponent(suffix)}`,
+        `&url=${encodeURIComponent(dataUrl)}`,
+      ].join('')
+    )
   })
 })

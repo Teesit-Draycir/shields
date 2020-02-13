@@ -1,7 +1,7 @@
 'use strict'
 
-const Joi = require('joi')
-const { renderVersionBadge } = require('../../lib/version')
+const Joi = require('@hapi/joi')
+const { renderVersionBadge } = require('../version')
 const {
   transformAndValidate,
   renderDynamicBadge,
@@ -11,7 +11,7 @@ const {
   getDependencyVersion,
 } = require('../package-json-helpers')
 const { semver } = require('../validators')
-const { ConditionalGithubAuthService } = require('./github-auth-service')
+const { ConditionalGithubAuthV3Service } = require('./github-auth-service')
 const { fetchJsonFromRepo } = require('./github-common-fetch')
 const { documentation } = require('./github-helpers')
 
@@ -21,7 +21,7 @@ const versionSchema = Joi.object({
   version: semver,
 }).required()
 
-class GithubPackageJsonVersion extends ConditionalGithubAuthService {
+class GithubPackageJsonVersion extends ConditionalGithubAuthV3Service {
   static get category() {
     return 'version'
   }
@@ -78,7 +78,11 @@ class GithubPackageJsonVersion extends ConditionalGithubAuthService {
   }
 }
 
-class GithubPackageJsonDependencyVersion extends ConditionalGithubAuthService {
+const dependencyQueryParamSchema = Joi.object({
+  filename: Joi.string(),
+}).required()
+
+class GithubPackageJsonDependencyVersion extends ConditionalGithubAuthV3Service {
   static get category() {
     return 'platform-support'
   }
@@ -88,6 +92,7 @@ class GithubPackageJsonDependencyVersion extends ConditionalGithubAuthService {
       base: 'github/package-json/dependency-version',
       pattern:
         ':user/:repo/:kind(dev|peer)?/:scope(@[^/]+)?/:packageName/:branch*',
+      queryParamSchema: dependencyQueryParamSchema,
     }
   }
 
@@ -125,6 +130,24 @@ class GithubPackageJsonDependencyVersion extends ConditionalGithubAuthService {
         documentation,
         keywords,
       },
+      {
+        title: 'GitHub package.json dependency version (subfolder of monorepo)',
+        pattern: ':user/:repo/:packageName',
+        namedParams: {
+          user: 'metabolize',
+          repo: 'anafanafo',
+          packageName: 'puppeteer',
+        },
+        queryParams: {
+          filename: 'packages/char-width-table-builder/package.json',
+        },
+        staticPreview: this.render({
+          dependency: 'puppeteer',
+          range: '^1.14.0',
+        }),
+        documentation,
+        keywords,
+      },
     ]
   }
 
@@ -142,7 +165,10 @@ class GithubPackageJsonDependencyVersion extends ConditionalGithubAuthService {
     }
   }
 
-  async handle({ user, repo, kind, branch = 'master', scope, packageName }) {
+  async handle(
+    { user, repo, kind, branch = 'master', scope, packageName },
+    { filename = 'package.json' }
+  ) {
     const {
       dependencies,
       devDependencies,
@@ -152,7 +178,7 @@ class GithubPackageJsonDependencyVersion extends ConditionalGithubAuthService {
       user,
       repo,
       branch,
-      filename: 'package.json',
+      filename,
     })
 
     const wantedDependency = scope ? `${scope}/${packageName}` : packageName
@@ -171,7 +197,9 @@ class GithubPackageJsonDependencyVersion extends ConditionalGithubAuthService {
   }
 }
 
-class DynamicGithubPackageJson extends ConditionalGithubAuthService {
+// This must be exported after GithubPackageJsonVersion in order for the
+// former to work correctly.
+class DynamicGithubPackageJson extends ConditionalGithubAuthV3Service {
   static get category() {
     return 'other'
   }
@@ -179,8 +207,7 @@ class DynamicGithubPackageJson extends ConditionalGithubAuthService {
   static get route() {
     return {
       base: 'github/package-json',
-      format: '(?!v)([^/]+)/([^/]+)/([^/]+)/?([^/]+)?',
-      capture: ['key', 'user', 'repo', 'branch'],
+      pattern: ':key/:user/:repo/:branch*',
     }
   }
 
@@ -252,8 +279,8 @@ class DynamicGithubPackageJson extends ConditionalGithubAuthService {
   }
 }
 
-module.exports = {
+module.exports = [
   GithubPackageJsonVersion,
   GithubPackageJsonDependencyVersion,
   DynamicGithubPackageJson,
-}
+]

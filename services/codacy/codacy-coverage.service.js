@@ -1,15 +1,15 @@
 'use strict'
 
-const Joi = require('joi')
+const Joi = require('@hapi/joi')
 const {
   coveragePercentage: coveragePercentageColor,
-} = require('../../lib/color-formatters')
+} = require('../color-formatters')
 const { BaseSvgScrapingService } = require('..')
 const { NotFound } = require('..')
 
 const schema = Joi.object({
   message: Joi.alternatives()
-    .try([Joi.string().regex(/^[0-9]+%$/), Joi.equal('!')])
+    .try(Joi.string().regex(/^[0-9]+%$/), Joi.equal('!'))
     .required(),
 }).required()
 
@@ -21,8 +21,7 @@ module.exports = class CodacyCoverage extends BaseSvgScrapingService {
   static get route() {
     return {
       base: 'codacy/coverage',
-      format: '(?!grade/)([^/]+)(?:/(.+))?',
-      capture: ['projectId', 'branch'],
+      pattern: ':projectId/:branch*',
     }
   }
 

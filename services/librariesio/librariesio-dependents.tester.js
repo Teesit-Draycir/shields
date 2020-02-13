@@ -1,30 +1,28 @@
 'use strict'
 
-const Joi = require('joi')
 const { isMetric } = require('../test-validators')
-
 const t = (module.exports = require('../tester').createServiceTester())
 
 t.create('dependent count')
-  .get('/npm/got.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'dependents',
-      value: isMetric,
-    })
-  )
-
-t.create('dependent count (nonexistent package)')
-  .get('/npm/foobar-is-not-package.json')
   .timeout(10000)
-  .expectJSON({
-    name: 'dependents',
-    value: 'package not found',
+  .get('/npm/got.json')
+  .expectBadge({
+    label: 'dependents',
+    message: isMetric,
   })
 
-t.create('dependent count (repo)')
-  .get('/github/sindresorhus/got.json')
-  .expectJSON({
-    name: 'dependents',
-    value: 'not supported for repos',
+t.create('dependent count (scoped npm package)')
+  .timeout(10000)
+  .get('/npm/@babel/core.json')
+  .expectBadge({
+    label: 'dependents',
+    message: isMetric,
+  })
+
+t.create('dependent count (nonexistent package)')
+  .timeout(10000)
+  .get('/npm/foobar-is-not-package.json')
+  .expectBadge({
+    label: 'dependents',
+    message: 'package not found',
   })

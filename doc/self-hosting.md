@@ -14,7 +14,7 @@ curl -sL https://deb.nodesource.com/setup_8.x | sudo -E bash -; sudo apt-get ins
 ```sh
 git clone https://github.com/badges/shields.git
 cd shields
-npm install  # You may need sudo for this.
+npm ci  # You may need sudo for this.
 ```
 
 [package manager]: https://nodejs.org/en/download/package-manager/
@@ -46,17 +46,16 @@ For testing purposes, you can go to `http://localhost/`.
 
 ## Heroku
 
-Once you have installed the [Heroku Toolbelt][]:
+Once you have installed the [Heroku CLI][]
 
 ```bash
 heroku login
 heroku create your-app-name
-heroku config:set BUILDPACK_URL=https://github.com/mojodna/heroku-buildpack-multi.git#build-env
-make deploy
+git push heroku master
 heroku open
 ```
 
-[heroku toolbelt]: https://toolbelt.heroku.com/
+[heroku cli]: https://devcenter.heroku.com/articles/heroku-cli
 
 ## Docker
 
@@ -70,7 +69,7 @@ Successfully built 4471b442c220
 ```
 
 Optionally, create a file called `shields.env` that contains the needed
-configuration. See [server-secrets.md](server-secrets.md) and [../config/custom-environment-variables.yml](config/custom-environment-variables.yml) for examples.
+configuration. See [server-secrets.md](server-secrets.md) and [config/custom-environment-variables.yml](/config/custom-environment-variables.yml) for examples.
 
 Then run the container:
 
@@ -93,6 +92,27 @@ then you will need to replace `localhost` with the IP address of that virtual
 machine.
 
 [shields.example.env]: ../shields.example.env
+
+## Raster server
+
+If you want to host PNG badges, you can also self-host a [raster server][]
+which points to your badge server. It's designed as a web function which is
+tested on Zeit Now, though you may be able to run it on AWS Lambda. It's
+built on the [micro][] framework, and comes with a `start` script that allows
+it to run as a standalone Node service.
+
+- In your raster instance, set `BASE_URL` to your Shields instance, e.g.
+  `https://shields.example.co`.
+- Optionally, in your Shields, instance, configure `RASTER_URL` to the base
+  URL, e.g. `https://raster.example.co`. This will send 301 redirects
+  for the legacy raster URLs instead of 404's.
+
+If anyone has set this up, more documentation on how to do this would be
+welcome! It would also be nice to ship a Docker image that includes a
+preconfigured raster server.
+
+[raster server]: https://github.com/badges/svg-to-image-proxy
+[micro]: https://github.com/zeit/micro
 
 ## Zeit Now
 
@@ -173,10 +193,10 @@ sudo node server
 ### Prometheus
 
 Shields uses [prom-client](https://github.com/siimon/prom-client) to provide [default metrics](https://prometheus.io/docs/instrumenting/writing_clientlibs/#standard-and-runtime-collectors). These metrics are disabled by default.
-You can enable them by `METRICS_PROMETHEUS_ENABLED` environment variable. Moreover access to metrics resource is blocked for requests from any IP address by default. You can provide a regular expression with allowed IP addresses by `METRICS_PROMETHEUS_ALLOWED_IPS` environment variable.
+You can enable them by `METRICS_PROMETHEUS_ENABLED` environment variable.
 
 ```bash
-METRICS_PROMETHEUS_ENABLED=true METRICS_PROMETHEUS_ALLOWED_IPS="^127\.0\.0\.1$" npm start
+METRICS_PROMETHEUS_ENABLED=true npm start
 ```
 
 Metrics are available at `/metrics` resource.

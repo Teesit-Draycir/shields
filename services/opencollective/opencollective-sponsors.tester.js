@@ -1,6 +1,5 @@
 'use strict'
 
-const Joi = require('joi')
 const { nonNegativeInteger } = require('../validators')
 const t = (module.exports = require('../tester').createServiceTester())
 
@@ -64,28 +63,22 @@ t.create('renders correctly')
         },
       ])
   )
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'sponsors',
-      value: '10',
-      color: 'brightgreen',
-    })
-  )
+  .expectBadge({
+    label: 'sponsors',
+    message: '10',
+    color: 'brightgreen',
+  })
 t.create('gets amount of sponsors')
   .get('/shields.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'sponsors',
-      value: nonNegativeInteger,
-    })
-  )
+  .expectBadge({
+    label: 'sponsors',
+    message: nonNegativeInteger,
+  })
 
 t.create('handles not found correctly')
-  .get('/nonexistent-collective.json?style=_shield_test')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'sponsors',
-      value: 'collective not found',
-      color: 'red',
-    })
-  )
+  .get('/nonexistent-collective.json')
+  .expectBadge({
+    label: 'sponsors',
+    message: 'collective not found',
+    color: 'red',
+  })

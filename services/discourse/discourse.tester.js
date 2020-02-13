@@ -1,6 +1,6 @@
 'use strict'
 
-const Joi = require('joi')
+const Joi = require('@hapi/joi')
 const { ServiceTester } = require('../tester')
 
 const t = (module.exports = new ServiceTester({
@@ -26,118 +26,104 @@ const data = {
 }
 
 t.create('Topics')
-  .get('/https/meta.discourse.org/topics.json')
+  .get('/topics.json?server=https://meta.discourse.org')
   .intercept(nock =>
     nock('https://meta.discourse.org')
       .get('/site/statistics.json')
       .reply(200, data)
   )
-  .expectJSON({ name: 'discourse', value: '23k topics' })
+  .expectBadge({ label: 'discourse', message: '23k topics' })
 
 t.create('Posts')
-  .get('/https/meta.discourse.org/posts.json')
+  .get('/posts.json?server=https://meta.discourse.org')
   .intercept(nock =>
     nock('https://meta.discourse.org')
       .get('/site/statistics.json')
       .reply(200, data)
   )
-  .expectJSON({ name: 'discourse', value: '338k posts' })
+  .expectBadge({ label: 'discourse', message: '338k posts' })
 
 t.create('Users')
-  .get('/https/meta.discourse.org/users.json')
+  .get('/users.json?server=https://meta.discourse.org')
   .intercept(nock =>
     nock('https://meta.discourse.org')
       .get('/site/statistics.json')
       .reply(200, data)
   )
-  .expectJSON({ name: 'discourse', value: '31k users' })
+  .expectBadge({ label: 'discourse', message: '31k users' })
 
 t.create('Likes')
-  .get('/https/meta.discourse.org/likes.json')
+  .get('/likes.json?server=https://meta.discourse.org')
   .intercept(nock =>
     nock('https://meta.discourse.org')
       .get('/site/statistics.json')
       .reply(200, data)
   )
-  .expectJSON({ name: 'discourse', value: '309k likes' })
+  .expectBadge({ label: 'discourse', message: '309k likes' })
 
 t.create('Status')
-  .get('/https/meta.discourse.org/status.json')
+  .get('/status.json?server=https://meta.discourse.org')
   .intercept(nock =>
     nock('https://meta.discourse.org')
       .get('/site/statistics.json')
       .reply(200, data)
   )
-  .expectJSON({ name: 'discourse', value: 'online' })
+  .expectBadge({ label: 'discourse', message: 'online' })
 
 t.create('Status with http (not https)')
-  .get('/http/meta.discourse.org/status.json')
+  .get('/status.json?server=http://meta.discourse.org')
   .intercept(nock =>
     nock('http://meta.discourse.org')
       .get('/site/statistics.json')
       .reply(200, data)
   )
-  .expectJSON({ name: 'discourse', value: 'online' })
+  .expectBadge({ label: 'discourse', message: 'online' })
 
 t.create('Invalid Host')
-  .get('/https/some.host/status.json')
+  .get('/status.json?server=https://some.host')
   .intercept(nock =>
     nock('https://some.host')
       .get('/site/statistics.json')
       .reply(404, '<h1>Not Found</h1>')
   )
-  .expectJSON({ name: 'discourse', value: 'inaccessible' })
+  .expectBadge({ label: 'discourse', message: 'not found' })
 
-t.create('Invalid Stat')
-  .get('/https/meta.discourse.org/unknown.json')
-  .intercept(nock =>
-    nock('https://meta.discourse.org')
-      .get('/site/statistics.json')
-      .reply(200, data)
-  )
-  .expectJSON({ name: 'discourse', value: 'invalid' })
+t.create('Topics')
+  .get('/topics.json?server=https://meta.discourse.org')
+  .expectBadge({
+    label: 'discourse',
+    message: Joi.string().regex(
+      /^([0-9]+[kMGTPEZY]?|[1-9]\.[1-9][kMGTPEZY]) topics$/
+    ),
+  })
 
-t.create('Connection Error')
-  .get('/https/meta.discourse.org/status.json')
-  .networkOff()
-  .expectJSON({ name: 'discourse', value: 'inaccessible' })
+t.create('Posts')
+  .get('/posts.json?server=https://meta.discourse.org')
+  .expectBadge({
+    label: 'discourse',
+    message: Joi.string().regex(
+      /^([0-9]+[kMGTPEZY]?|[1-9]\.[1-9][kMGTPEZY]) posts$/
+    ),
+  })
 
-t.create('Topics (live)')
-  .get('/https/meta.discourse.org/topics.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'discourse',
-      value: Joi.string().regex(/^[0-9]+[kMGTPEZY]? topics$/),
-    })
-  )
+t.create('Users')
+  .get('/users.json?server=https://meta.discourse.org')
+  .expectBadge({
+    label: 'discourse',
+    message: Joi.string().regex(
+      /^([0-9]+[kMGTPEZY]?|[1-9]\.[1-9][kMGTPEZY]) users$/
+    ),
+  })
 
-t.create('Posts (live)')
-  .get('/https/meta.discourse.org/posts.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'discourse',
-      value: Joi.string().regex(/^[0-9]+[kMGTPEZY]? posts$/),
-    })
-  )
+t.create('Likes')
+  .get('/likes.json?server=https://meta.discourse.org')
+  .expectBadge({
+    label: 'discourse',
+    message: Joi.string().regex(
+      /^([0-9]+[kMGTPEZY]?|[1-9]\.[1-9][kMGTPEZY]) likes$/
+    ),
+  })
 
-t.create('Users (live)')
-  .get('/https/meta.discourse.org/users.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'discourse',
-      value: Joi.string().regex(/^[0-9]+[kMGTPEZY]? users$/),
-    })
-  )
-
-t.create('Likes (live)')
-  .get('/https/meta.discourse.org/likes.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'discourse',
-      value: Joi.string().regex(/^[0-9]+[kMGTPEZY]? likes$/),
-    })
-  )
-
-t.create('Status (live)')
-  .get('/https/meta.discourse.org/status.json')
-  .expectJSON({ name: 'discourse', value: 'online' })
+t.create('Status')
+  .get('/status.json?server=https://meta.discourse.org')
+  .expectBadge({ label: 'discourse', message: 'online' })

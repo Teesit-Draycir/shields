@@ -8,6 +8,11 @@ There are two ways of setting secrets:
 
 1. Via environment variables. This is a good way to set them in a PaaS
    environment.
+
+```sh
+GH_TOKEN=...
+```
+
 2. Via checked-in `config/local.yml`:
 
 ```yml
@@ -15,7 +20,8 @@ private:
   gh_token: '...'
 ```
 
-See the [node-config documentation][] for more information.
+For more complex scenarios, configuration files can cascade. See the [node-config documentation][]
+for details.
 
 [node-config documentation]: https://github.com/lorenwest/node-config/wiki/Configuration-Files
 
@@ -42,6 +48,13 @@ An Azure DevOps Token (PAT) is required for accessing [private Azure DevOps proj
 
 The bintray API [requires authentication](https://bintray.com/docs/api/#_authentication)
 Create an account and obtain a token from the user profile page.
+
+## Drone
+
+- `DRONE_TOKEN` (yml: `drone_token`)
+
+The self-hosted Drone API [requires authentication](https://0-8-0.docs.drone.io/api-authentication/)
+Login to your Drone instance and obtain a token from the user profile page.
 
 ## GitHub
 
@@ -127,6 +140,14 @@ Create an account, sign in and obtain a uuid and token from your
 [Generate a token](https://docs.sonarqube.org/latest/user-guide/user-token/)
 to give your self-hosted Shields installation access to a
 private SonarQube instance or private project on a public instance.
+
+## Twitch
+
+- `TWITCH_CLIENT_ID` (yml: `twitch_client_id`)
+- `TWITCH_CLIENT_SECRET` (yml: `twitch_client_secret`)
+
+Register an application in the [Twitch developer console](https://dev.twitch.tv/console)
+in order to obtain a client id and a client secret for making Twitch API calls.
 
 ## Wheelmap
 

@@ -1,41 +1,22 @@
 'use strict'
 
-const Joi = require('joi')
-
+const { isMetric } = require('../test-validators')
 const t = (module.exports = require('../tester').createServiceTester())
 
 t.create('Stars')
   .get('/badges/shields.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'stars',
-      value: Joi.string().regex(/^\w+$/),
-    })
-  )
+  .expectBadge({
+    label: 'stars',
+    message: isMetric,
+    link: [
+      'https://github.com/badges/shields',
+      'https://github.com/badges/shields/stargazers',
+    ],
+  })
 
 t.create('Stars (repo not found)')
   .get('/badges/helmets.json')
-  .expectJSON({
-    name: 'stars',
-    value: 'repo not found',
+  .expectBadge({
+    label: 'stars',
+    message: 'repo not found',
   })
-
-t.create('Stars (named color override)')
-  .get('/badges/shields.json?colorB=yellow&style=_shields_test')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'stars',
-      value: Joi.string().regex(/^\w+$/),
-      color: 'yellow',
-    })
-  )
-
-t.create('Stars (hex color override)')
-  .get('/badges/shields.json?colorB=abcdef&style=_shields_test')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'stars',
-      value: Joi.string().regex(/^\w+$/),
-      color: '#abcdef',
-    })
-  )

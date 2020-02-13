@@ -1,8 +1,8 @@
 'use strict'
 
-const Joi = require('joi')
-const { BaseSvgScrapingService } = require('..')
+const Joi = require('@hapi/joi')
 const { codacyGrade } = require('./codacy-helpers')
+const { BaseSvgScrapingService } = require('..')
 
 const schema = Joi.object({ message: codacyGrade }).required()
 
@@ -14,8 +14,7 @@ module.exports = class CodacyGrade extends BaseSvgScrapingService {
   static get route() {
     return {
       base: 'codacy/grade',
-      format: '(?:grade/)?(?!coverage/)([^/]+)(?:/(.+))?',
-      capture: ['projectId', 'branch'],
+      pattern: ':projectId/:branch*',
     }
   }
 

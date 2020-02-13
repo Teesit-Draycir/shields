@@ -1,33 +1,26 @@
 'use strict'
 
-const Joi = require('joi')
 const t = (module.exports = require('../tester').createServiceTester())
 const { withRegex, isStarRating } = require('../test-validators')
 
 const isVscodeRating = withRegex(/[0-5]\.[0-9]{1}\/5?\s*\([0-9]*\)$/)
 
-t.create('live: rating')
+t.create('rating')
   .get('/visual-studio-marketplace/r/ritwickdey.LiveServer.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'rating',
-      value: isVscodeRating,
-    })
-  )
+  .expectBadge({
+    label: 'rating',
+    message: isVscodeRating,
+  })
 
-t.create('live: stars')
+t.create('stars')
   .get('/visual-studio-marketplace/stars/ritwickdey.LiveServer.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'rating',
-      value: isStarRating,
-    })
-  )
+  .expectBadge({
+    label: 'rating',
+    message: isStarRating,
+  })
 
 t.create('rating')
-  .get(
-    '/visual-studio-marketplace/r/ritwickdey.LiveServer.json?style=_shields_test'
-  )
+  .get('/visual-studio-marketplace/r/ritwickdey.LiveServer.json')
   .intercept(nock =>
     nock('https://marketplace.visualstudio.com/_apis/public/gallery/')
       .post(`/extensionquery/`)
@@ -57,16 +50,14 @@ t.create('rating')
         ],
       })
   )
-  .expectJSON({
-    name: 'rating',
-    value: '2.5/5 (10)',
+  .expectBadge({
+    label: 'rating',
+    message: '2.5/5 (10)',
     color: 'yellowgreen',
   })
 
 t.create('zero rating')
-  .get(
-    '/visual-studio-marketplace/r/ritwickdey.LiveServer.json?style=_shields_test'
-  )
+  .get('/visual-studio-marketplace/r/ritwickdey.LiveServer.json')
   .intercept(nock =>
     nock('https://marketplace.visualstudio.com/_apis/public/gallery/')
       .post(`/extensionquery/`)
@@ -87,16 +78,14 @@ t.create('zero rating')
         ],
       })
   )
-  .expectJSON({
-    name: 'rating',
-    value: '0.0/5 (0)',
+  .expectBadge({
+    label: 'rating',
+    message: '0.0/5 (0)',
     color: 'red',
   })
 
 t.create('stars')
-  .get(
-    '/visual-studio-marketplace/stars/ritwickdey.LiveServer.json?style=_shields_test'
-  )
+  .get('/visual-studio-marketplace/stars/ritwickdey.LiveServer.json')
   .intercept(nock =>
     nock('https://marketplace.visualstudio.com/_apis/public/gallery/')
       .post(`/extensionquery/`)
@@ -126,26 +115,22 @@ t.create('stars')
         ],
       })
   )
-  .expectJSON({
-    name: 'rating',
-    value: '★★★★¾',
+  .expectBadge({
+    label: 'rating',
+    message: '★★★★¾',
     color: 'brightgreen',
   })
 
-t.create('live: rating (legacy)')
+t.create('rating (legacy)')
   .get('/vscode-marketplace/r/ritwickdey.LiveServer.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'rating',
-      value: isVscodeRating,
-    })
-  )
+  .expectBadge({
+    label: 'rating',
+    message: isVscodeRating,
+  })
 
-t.create('live: stars (legacy)')
+t.create('stars (legacy)')
   .get('/vscode-marketplace/stars/ritwickdey.LiveServer.json')
-  .expectJSONTypes(
-    Joi.object().keys({
-      name: 'rating',
-      value: isStarRating,
-    })
-  )
+  .expectBadge({
+    label: 'rating',
+    message: isStarRating,
+  })

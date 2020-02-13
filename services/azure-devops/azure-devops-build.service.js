@@ -1,8 +1,14 @@
 'use strict'
 
-const { renderBuildStatusBadge } = require('../../lib/build-status')
-const { BaseSvgScrapingService, NotFound } = require('..')
+const Joi = require('@hapi/joi')
+const { renderBuildStatusBadge } = require('../build-status')
 const { keywords, fetch } = require('./azure-devops-helpers')
+const { BaseSvgScrapingService, NotFound } = require('..')
+
+const queryParamSchema = Joi.object({
+  stage: Joi.string(),
+  job: Joi.string(),
+})
 
 const documentation = `
 <p>
@@ -34,9 +40,9 @@ module.exports = class AzureDevOpsBuild extends BaseSvgScrapingService {
 
   static get route() {
     return {
-      base: '',
-      format: '(?:azure-devops|vso)/build/([^/]+)/([^/]+)/([^/]+)(?:/(.+))?',
-      capture: ['organization', 'projectId', 'definitionId', 'branch'],
+      base: 'azure-devops/build',
+      pattern: ':organization/:projectId/:definitionId/:branch*',
+      queryParamSchema,
     }
   }
 
@@ -44,7 +50,7 @@ module.exports = class AzureDevOpsBuild extends BaseSvgScrapingService {
     return [
       {
         title: 'Azure DevOps builds',
-        pattern: 'azure-devops/build/:organization/:projectId/:definitionId',
+        pattern: ':organization/:projectId/:definitionId',
         namedParams: {
           organization: 'totodem',
           projectId: '8cf3ec0e-d0c2-4fcd-8206-ad204f254a96',
@@ -56,8 +62,7 @@ module.exports = class AzureDevOpsBuild extends BaseSvgScrapingService {
       },
       {
         title: 'Azure DevOps builds (branch)',
-        pattern:
-          'azure-devops/build/:organization/:projectId/:definitionId/:branch',
+        pattern: ':organization/:projectId/:definitionId/:branch',
         namedParams: {
           organization: 'totodem',
           projectId: '8cf3ec0e-d0c2-4fcd-8206-ad204f254a96',
@@ -68,14 +73,50 @@ module.exports = class AzureDevOpsBuild extends BaseSvgScrapingService {
         keywords,
         documentation,
       },
+      {
+        title: 'Azure DevOps builds (stage)',
+        namedParams: {
+          organization: 'totodem',
+          projectId: '8cf3ec0e-d0c2-4fcd-8206-ad204f254a96',
+          definitionId: '5',
+        },
+        queryParams: {
+          stage: 'Successful Stage',
+        },
+        staticPreview: renderBuildStatusBadge({ status: 'succeeded' }),
+        keywords,
+        documentation,
+      },
+      {
+        title: 'Azure DevOps builds (job)',
+        namedParams: {
+          organization: 'totodem',
+          projectId: '8cf3ec0e-d0c2-4fcd-8206-ad204f254a96',
+          definitionId: '5',
+        },
+        queryParams: {
+          stage: 'Successful Stage',
+          job: 'Successful Job',
+        },
+        staticPreview: renderBuildStatusBadge({ status: 'succeeded' }),
+        keywords,
+        documentation,
+      },
     ]
   }
 
-  async handle({ organization, projectId, definitionId, branch }) {
+  async handle(
+    { organization, projectId, definitionId, branch },
+    { stage, job }
+  ) {
     // Microsoft documentation: https://docs.microsoft.com/en-us/rest/api/vsts/build/status/get
     const { status } = await fetch(this, {
       url: `https://dev.azure.com/${organization}/${projectId}/_apis/build/status/${definitionId}`,
-      qs: { branchName: branch },
+      qs: {
+        branchName: branch,
+        stageName: stage,
+        jobName: job,
+      },
       errorMessages: {
         404: 'user or project not found',
       },

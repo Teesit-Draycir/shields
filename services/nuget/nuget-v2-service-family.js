@@ -1,9 +1,13 @@
 'use strict'
 
-const Joi = require('joi')
-const { BaseJsonService, NotFound } = require('..')
+const Joi = require('@hapi/joi')
 const { nonNegativeInteger } = require('../validators')
-const { renderVersionBadge, renderDownloadBadge } = require('./nuget-helpers')
+const {
+  renderVersionBadge,
+  renderDownloadBadge,
+  odataToObject,
+} = require('./nuget-helpers')
+const { BaseJsonService, BaseXmlService, NotFound, redirector } = require('..')
 
 function createFilter({ packageName, includePrereleases }) {
   const releaseTypeFilter = includePrereleases
@@ -12,7 +16,7 @@ function createFilter({ packageName, includePrereleases }) {
   return `Id eq '${packageName}' and ${releaseTypeFilter}`
 }
 
-const schema = Joi.object({
+const jsonSchema = Joi.object({
   d: Joi.object({
     results: Joi.array()
       .items(
@@ -27,25 +31,57 @@ const schema = Joi.object({
   }).required(),
 }).required()
 
+const xmlSchema = Joi.object({
+  feed: Joi.object({
+    entry: Joi.object({
+      'm:properties': Joi.object({
+        'd:Version': Joi.alternatives(Joi.string(), Joi.number()),
+        'd:NormalizedVersion': Joi.string(),
+        'd:DownloadCount': nonNegativeInteger,
+        'd:Tags': Joi.string(),
+      }),
+    }),
+  }).required(),
+}).required()
+
+const queryParamSchema = Joi.object({
+  include_prereleases: Joi.equal(''),
+}).required()
+
 async function fetch(
   serviceInstance,
-  { baseUrl, packageName, includePrereleases = false }
+  { odataFormat, baseUrl, packageName, includePrereleases = false }
 ) {
-  const data = await serviceInstance._requestJson({
-    schema,
-    url: `${baseUrl}/Packages()`,
-    options: {
-      headers: { Accept: 'application/atom+json,application/json' },
-      qs: { $filter: createFilter({ packageName, includePrereleases }) },
-    },
-  })
+  const url = `${baseUrl}/Packages()`
+  const qs = { $filter: createFilter({ packageName, includePrereleases }) }
 
-  const packageData = data.d.results[0]
+  let packageData
+  if (odataFormat === 'xml') {
+    const data = await serviceInstance._requestXml({
+      schema: xmlSchema,
+      url,
+      options: { qs },
+    })
+    packageData = odataToObject(data.feed.entry)
+  } else if (odataFormat === 'json') {
+    const data = await serviceInstance._requestJson({
+      schema: jsonSchema,
+      url,
+      options: {
+        headers: { Accept: 'application/atom+json,application/json' },
+        qs,
+      },
+    })
+    packageData = data.d.results[0]
+  } else {
+    throw Error(`Unsupported Atom OData format: ${odataFormat}`)
+  }
 
   if (packageData) {
     return packageData
   } else if (!includePrereleases) {
     return fetch(serviceInstance, {
+      odataFormat,
       baseUrl,
       packageName,
       includePrereleases: true,
@@ -64,24 +100,40 @@ async function fetch(
  * apiBaseUrl: The complete base URL of the API, e.g. https://api.example.com/api/v2
  */
 function createServiceFamily({
+  title,
+  name = title,
   defaultLabel,
   serviceBaseUrl,
   apiBaseUrl,
-  title,
+  odataFormat,
   examplePackageName,
   exampleVersion,
   examplePrereleaseVersion,
   exampleDownloadCount,
 }) {
-  class NugetVersionService extends BaseJsonService {
+  let Base
+  if (odataFormat === 'xml') {
+    Base = BaseXmlService
+  } else if (odataFormat === 'json') {
+    Base = BaseJsonService
+  } else {
+    throw Error(`Unsupported Atom OData format: ${odataFormat}`)
+  }
+
+  class NugetVersionService extends Base {
+    static get name() {
+      return `${name}Version`
+    }
+
     static get category() {
       return 'version'
     }
 
     static get route() {
       return {
-        base: serviceBaseUrl,
-        pattern: ':which(v|vpre)/:packageName',
+        base: `${serviceBaseUrl}/v`,
+        pattern: ':packageName',
+        queryParamSchema,
       }
     }
 
@@ -90,15 +142,14 @@ function createServiceFamily({
 
       return [
         {
-          title,
-          pattern: 'v/:packageName',
+          title: `${title} Version`,
           namedParams: { packageName: examplePackageName },
           staticPreview: this.render({ version: exampleVersion }),
         },
         {
-          title: `${title} (with prereleases)`,
-          pattern: 'vpre/:packageName',
+          title: `${title} Version (including pre-releases)`,
           namedParams: { packageName: examplePackageName },
+          queryParams: { include_prereleases: null },
           staticPreview: this.render({ version: examplePrereleaseVersion }),
         },
       ]
@@ -114,18 +165,36 @@ function createServiceFamily({
       return renderVersionBadge(props)
     }
 
-    async handle({ which, packageName }) {
+    async handle({ packageName }, queryParams) {
       const packageData = await fetch(this, {
+        odataFormat,
         baseUrl: apiBaseUrl,
         packageName,
-        includePrereleases: which === 'vpre',
+        includePrereleases: queryParams.include_prereleases !== undefined,
       })
       const version = packageData.NormalizedVersion || packageData.Version
       return this.constructor.render({ version })
     }
   }
 
-  class NugetDownloadService extends BaseJsonService {
+  const NugetVersionRedirector = redirector({
+    category: 'version',
+    route: {
+      base: `${serviceBaseUrl}/vpre`,
+      pattern: ':packageName',
+    },
+    transformPath: ({ packageName }) => `/${serviceBaseUrl}/v/${packageName}`,
+    transformQueryParams: params => ({
+      include_prereleases: null,
+    }),
+    dateAdded: new Date('2019-12-15'),
+  })
+
+  class NugetDownloadService extends Base {
+    static get name() {
+      return `${name}Downloads`
+    }
+
     static get category() {
       return 'downloads'
     }
@@ -155,6 +224,7 @@ function createServiceFamily({
 
     async handle({ packageName }) {
       const packageData = await fetch(this, {
+        odataFormat,
         baseUrl: apiBaseUrl,
         packageName,
       })
@@ -163,10 +233,11 @@ function createServiceFamily({
     }
   }
 
-  return { NugetVersionService, NugetDownloadService }
+  return { NugetVersionService, NugetVersionRedirector, NugetDownloadService }
 }
 
 module.exports = {
   createFilter,
+  fetch,
   createServiceFamily,
 }

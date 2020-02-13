@@ -1,21 +1,33 @@
 'use strict'
+/**
+ * @module
+ */
 
 const emojic = require('emojic')
-const frisby = require('./icedfrisby-no-nock')(
+const trace = require('../base-service/trace')
+const frisby = require('./icedfrisby-shields')(
+  // eslint-disable-next-line import/order
   require('icedfrisby-nock')(require('icedfrisby'))
 )
-const trace = require('../base-service/trace')
 
 /**
  * Encapsulate a suite of tests. Create new tests using create() and register
  * them with Mocha using toss().
+ *
+ * @see https://github.com/badges/shields/blob/master/doc/service-tests.md
  */
 class ServiceTester {
   /**
-   * @param attrs { id, title, pathPrefix } The `id` is used to specify which
-   *   tests to run from the CLI or pull requests. The `title` prints in the
-   *   Mocha output. The `path` is the path prefix which is automatically
-   *   prepended to each tested URI. The default is `/${attrs.id}`.
+   * Service Tester Constructor
+   *
+   * @param {object} attrs Refer to individual attrs
+   * @param {string} attrs.id
+   *    Specifies which tests to run from the CLI or pull requests
+   * @param {string} attrs.title
+   *    Prints in the Mocha output
+   * @param {string} attrs.path
+   *    Prefix which is automatically prepended to each tested URI.
+   *    The default is `/${attrs.id}`.
    */
   constructor({ id, title, pathPrefix }) {
     if (pathPrefix === undefined) {
@@ -30,6 +42,14 @@ class ServiceTester {
     })
   }
 
+  /**
+   * Construct a ServiceTester instance for a single service class
+   *
+   * @param {Function} ServiceClass
+   *    A class that extends base-service/base.BaseService
+   * @returns {module:core/service-test-runner/service-tester~ServiceTester}
+   *    ServiceTester for ServiceClass
+   */
   static forServiceClass(ServiceClass) {
     const id = ServiceClass.name
     const pathPrefix = ServiceClass.route.base
@@ -50,11 +70,13 @@ class ServiceTester {
 
   /**
    * Create a new test. The hard work is delegated to IcedFrisby.
-   * https://github.com/MarkHerhold/IcedFrisby/#show-me-some-code
+   * {@link https://github.com/MarkHerhold/IcedFrisby/#show-me-some-code}
    *
    * Note: The caller should not invoke toss() on the Frisby chain, as it's
    * invoked automatically by the tester.
-   * @param msg The name of the test
+   *
+   * @param {string} msg The name of the test
+   * @returns {module:icedfrisby~IcedFrisby} IcedFrisby instance
    */
   create(msg) {
     const spec = frisby
@@ -89,8 +111,15 @@ class ServiceTester {
 
   /**
    * Register the tests with Mocha.
+   *
+   * @param {object} attrs Refer to individual attrs
+   * @param {string} attrs.baseUrl base URL for test server
+   * @param {boolean} attrs.skipIntercepted skip tests which intercept requests
+   * @param {object} attrs.retry retry configuration
+   * @param {number} attrs.retry.count number of times to retry test
+   * @param {number} attrs.retry.backoff number of milliseconds to add to the wait between each retry
    */
-  toss({ baseUrl, skipIntercepted }) {
+  toss({ baseUrl, skipIntercepted, retry }) {
     const { specs, pathPrefix } = this
     const testerBaseUrl = `${baseUrl}${pathPrefix}`
 
@@ -98,12 +127,17 @@ class ServiceTester {
     // eslint-disable-next-line mocha/prefer-arrow-callback
     fn(this.title, function() {
       specs.forEach(spec => {
+        spec._message = `[${spec.hasIntercept ? 'mocked' : 'live'}] ${
+          spec._message
+        }`
         if (!skipIntercepted || !spec.intercepted) {
           spec.baseUri(testerBaseUrl)
+          spec.retry(retry.count, retry.backoff)
           spec.toss()
         }
       })
     })
   }
 }
+
 module.exports = ServiceTester

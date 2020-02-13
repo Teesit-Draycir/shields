@@ -1,155 +1,158 @@
 'use strict'
 
-const LegacyService = require('../legacy-service')
-const { makeBadgeData: getBadgeData } = require('../../lib/badge-data')
-const { addv: versionText } = require('../../lib/text-formatters')
-const { version: versionColor } = require('../../lib/color-formatters')
+const Joi = require('@hapi/joi')
+const { renderVersionBadge } = require('../version')
+const { compare, isStable, latest } = require('../php-version')
+const { optionalUrl } = require('../validators')
 const {
-  compare: phpVersionCompare,
-  latest: phpLatestVersion,
-  isStable: phpStableVersion,
-} = require('../../lib/php-version')
+  allVersionsSchema,
+  keywords,
+  BasePackagistService,
+  customServerDocumentationFragment,
+} = require('./packagist-base')
+const { NotFound, redirector } = require('..')
 
-const keywords = ['PHP']
+const packageSchema = Joi.object()
+  .pattern(
+    /^/,
+    Joi.object({
+      version: Joi.string(),
+      extra: Joi.object({
+        'branch-alias': Joi.object().pattern(/^/, Joi.string()),
+      }),
+    }).required()
+  )
+  .required()
 
-// This legacy service should be rewritten to use e.g. BaseJsonService.
-//
-// Tips for rewriting:
-// https://github.com/badges/shields/blob/master/doc/rewriting-services.md
-//
-// Do not base new services on this code.
-module.exports = class PackagistVersion extends LegacyService {
+const schema = Joi.object({
+  packages: Joi.object()
+    .pattern(/^/, packageSchema)
+    .required(),
+}).required()
+
+const queryParamSchema = Joi.object({
+  server: optionalUrl,
+  include_prereleases: Joi.equal(''),
+}).required()
+
+class PackagistVersion extends BasePackagistService {
   static get category() {
     return 'version'
   }
 
   static get route() {
     return {
-      base: 'packagist',
-      pattern: ':which(v|vpre)/:user/:repo',
+      base: 'packagist/v',
+      pattern: ':user/:repo',
+      queryParamSchema,
     }
   }
 
   static get examples() {
     return [
       {
-        title: 'Packagist',
-        pattern: 'v/:user/:repo',
+        title: 'Packagist Version',
         namedParams: {
           user: 'symfony',
           repo: 'symfony',
         },
-        staticPreview: {
-          label: 'packagist',
-          message: 'v4.2.2',
-          color: 'blue',
-        },
+        staticPreview: renderVersionBadge({ version: '4.2.2' }),
         keywords,
       },
       {
-        title: 'Packagist Pre Release',
-        pattern: 'vpre/:user/:repo',
+        title: 'Packagist Version (including pre-releases)',
         namedParams: {
           user: 'symfony',
           repo: 'symfony',
         },
-        staticPreview: {
-          label: 'packagist',
-          message: 'v4.3-dev',
-          color: 'orange',
-        },
+        queryParams: { include_prereleases: null },
+        staticPreview: renderVersionBadge({ version: '4.3-dev' }),
         keywords,
+      },
+      {
+        title: 'Packagist Version (custom server)',
+        namedParams: {
+          user: 'symfony',
+          repo: 'symfony',
+        },
+        queryParams: {
+          server: 'https://packagist.org',
+        },
+        staticPreview: renderVersionBadge({ version: '4.2.2' }),
+        keywords,
+        documentation: customServerDocumentationFragment,
       },
     ]
   }
 
-  static registerLegacyRouteHandler({ camp, cache }) {
-    camp.route(
-      /^\/packagist\/(v|vpre)\/(.*)\.(svg|png|gif|jpg|json)$/,
-      cache((data, match, sendBadge, request) => {
-        const info = match[1] // either `v` or `vpre`.
-        const userRepo = match[2] // eg, `doctrine/orm`.
-        const format = match[3]
-        const apiUrl = `https://packagist.org/packages/${userRepo}.json`
-        const badgeData = getBadgeData('packagist', data)
-        if (userRepo.substr(-14) === '/:package_name') {
-          badgeData.text[1] = 'invalid'
-          return sendBadge(format, badgeData)
+  static get defaultBadgeData() {
+    return {
+      label: 'packagist',
+    }
+  }
+
+  static render({ version }) {
+    if (version === undefined) {
+      throw new NotFound({ prettyMessage: 'no released version found' })
+    }
+    return renderVersionBadge({ version })
+  }
+
+  transform({ includePrereleases, json, user, repo }) {
+    const versionsData = json.packages[this.getPackageName(user, repo)]
+    let versions = Object.keys(versionsData)
+    const aliasesMap = {}
+    versions.forEach(version => {
+      const versionData = versionsData[version]
+      if (
+        versionData.extra &&
+        versionData.extra['branch-alias'] &&
+        versionData.extra['branch-alias'][version]
+      ) {
+        // eg, version is 'dev-master', mapped to '2.0.x-dev'.
+        const validVersion = versionData.extra['branch-alias'][version]
+        if (
+          aliasesMap[validVersion] === undefined ||
+          compare(aliasesMap[validVersion], validVersion) < 0
+        ) {
+          versions.push(validVersion)
+          aliasesMap[validVersion] = version
         }
-        request(apiUrl, (err, res, buffer) => {
-          if (err != null) {
-            badgeData.text[1] = 'inaccessible'
-            sendBadge(format, badgeData)
-            return
-          }
-          try {
-            const data = JSON.parse(buffer)
+      }
+    })
 
-            const versionsData = data.package.versions
-            let versions = Object.keys(versionsData)
+    versions = versions.filter(version => !/^dev-/.test(version))
 
-            // Map aliases (eg, dev-master).
-            const aliasesMap = {}
-            versions.forEach(version => {
-              const versionData = versionsData[version]
-              if (
-                versionData.extra &&
-                versionData.extra['branch-alias'] &&
-                versionData.extra['branch-alias'][version]
-              ) {
-                // eg, version is 'dev-master', mapped to '2.0.x-dev'.
-                const validVersion = versionData.extra['branch-alias'][version]
-                if (
-                  aliasesMap[validVersion] === undefined ||
-                  phpVersionCompare(aliasesMap[validVersion], validVersion) < 0
-                ) {
-                  versions.push(validVersion)
-                  aliasesMap[validVersion] = version
-                }
-              }
-            })
-            versions = versions.filter(version => !/^dev-/.test(version))
+    if (includePrereleases) {
+      return { version: latest(versions) }
+    } else {
+      const stableVersion = latest(versions.filter(isStable))
+      return { version: stableVersion || latest(versions) }
+    }
+  }
 
-            let badgeText = null
-            let badgeColor = null
-
-            switch (info) {
-              case 'v': {
-                const stableVersions = versions.filter(phpStableVersion)
-                let stableVersion = phpLatestVersion(stableVersions)
-                if (!stableVersion) {
-                  stableVersion = phpLatestVersion(versions)
-                }
-                //if (!!aliasesMap[stableVersion]) {
-                //  stableVersion = aliasesMap[stableVersion];
-                //}
-                badgeText = versionText(stableVersion)
-                badgeColor = versionColor(stableVersion)
-                break
-              }
-              case 'vpre': {
-                const unstableVersion = phpLatestVersion(versions)
-                //if (!!aliasesMap[unstableVersion]) {
-                //  unstableVersion = aliasesMap[unstableVersion];
-                //}
-                badgeText = versionText(unstableVersion)
-                badgeColor = 'orange'
-                break
-              }
-            }
-
-            if (badgeText !== null) {
-              badgeData.text[1] = badgeText
-              badgeData.colorscheme = badgeColor
-            }
-
-            sendBadge(format, badgeData)
-          } catch (e) {
-            badgeData.text[1] = 'invalid'
-            sendBadge(format, badgeData)
-          }
-        })
-      })
-    )
+  async handle({ user, repo }, { include_prereleases, server }) {
+    const includePrereleases = include_prereleases !== undefined
+    const json = await this.fetch({
+      user,
+      repo,
+      schema: includePrereleases ? schema : allVersionsSchema,
+      server,
+    })
+    const { version } = this.transform({ includePrereleases, json, user, repo })
+    return this.constructor.render({ version })
   }
 }
+
+const PackagistVersionRedirector = redirector({
+  category: 'version',
+  route: {
+    base: 'packagist/vpre',
+    pattern: ':user/:repo',
+  },
+  transformPath: ({ user, repo }) => `/packagist/v/${user}/${repo}`,
+  transformQueryParams: params => ({ include_prereleases: null }),
+  dateAdded: new Date('2019-12-15'),
+})
+
+module.exports = { PackagistVersion, PackagistVersionRedirector }

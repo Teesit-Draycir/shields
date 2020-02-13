@@ -1,9 +1,8 @@
 'use strict'
 
-const Joi = require('joi')
+const Joi = require('@hapi/joi')
 const { expect } = require('chai')
 const sinon = require('sinon')
-
 const BaseJsonService = require('./base-json')
 
 const dummySchema = Joi.object({
@@ -50,7 +49,9 @@ describe('BaseJsonService', function() {
 
       expect(sendAndCacheRequest).to.have.been.calledOnceWith(
         'http://example.com/foo.json',
-        { headers: { Accept: 'application/json' } }
+        {
+          headers: { Accept: 'application/json' },
+        }
       )
     })
 

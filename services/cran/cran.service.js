@@ -1,8 +1,8 @@
 'use strict'
 
-const Joi = require('joi')
+const Joi = require('@hapi/joi')
+const { renderVersionBadge } = require('../version')
 const { BaseJsonService } = require('..')
-const { renderVersionBadge } = require('../../lib/version')
 
 const schema = Joi.object({
   License: Joi.string().required(),
@@ -10,13 +10,13 @@ const schema = Joi.object({
 }).required()
 
 class BaseCranService extends BaseJsonService {
+  static get defaultBadgeData() {
+    return { label: 'cran' }
+  }
+
   async fetch({ packageName }) {
     const url = `http://crandb.r-pkg.org/${packageName}`
     return this._requestJson({ schema, url })
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'cran' }
   }
 }
 
@@ -38,7 +38,6 @@ class CranLicense extends BaseCranService {
         title: 'CRAN/METACRAN',
         namedParams: { packageName: 'devtools' },
         staticPreview: this.render({ license: 'GPL (>= 2)' }),
-        keywords: ['R'],
       },
     ]
   }
@@ -75,7 +74,6 @@ class CranVersion extends BaseCranService {
         title: 'CRAN/METACRAN',
         namedParams: { packageName: 'devtools' },
         staticPreview: this.render({ version: '2.0.1' }),
-        keywords: ['R'],
       },
     ]
   }

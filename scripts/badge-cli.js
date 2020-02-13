@@ -1,18 +1,16 @@
 'use strict'
 
 const { URL } = require('url')
+const config = require('config').util.toObject()
 const got = require('got')
 const emojic = require('emojic')
 const Server = require('../core/server/server')
 const trace = require('../core/base-service/trace')
 
-const config = require('config').util.toObject()
-
 function normalizeBadgeUrl(url) {
   // Provide a base URL in order to accept fragments.
   const { pathname, searchParams } = new URL(url, 'http://example.com')
   const newPath = pathname.replace('.svg', '.json')
-  searchParams.set('style', '_shields_test')
   return `${newPath}?${searchParams.toString()}`
 }
 

@@ -1,16 +1,15 @@
 'use strict'
 
-const LegacyService = require('../legacy-service')
-const { makeBadgeData: getBadgeData } = require('../../lib/badge-data')
-const { checkErrorResponse } = require('../../lib/error-helper')
+const Joi = require('@hapi/joi')
+const { isBuildStatus, renderBuildStatusBadge } = require('../build-status')
+const { BaseJsonService } = require('..')
 
-// This legacy service should be rewritten to use e.g. BaseJsonService.
-//
-// Tips for rewriting:
-// https://github.com/badges/shields/blob/master/doc/rewriting-services.md
-//
-// Do not base new services on this code.
-module.exports = class Buildkite extends LegacyService {
+// unknown is a valid 'other' status for Buildkite
+const schema = Joi.object({
+  status: Joi.alternatives().try(isBuildStatus, Joi.equal('unknown')),
+}).required()
+
+module.exports = class Buildkite extends BaseJsonService {
   static get category() {
     return 'build'
   }
@@ -18,7 +17,7 @@ module.exports = class Buildkite extends LegacyService {
   static get route() {
     return {
       base: 'buildkite',
-      pattern: '',
+      pattern: ':identifier/:branch*',
     }
   }
 
@@ -30,11 +29,7 @@ module.exports = class Buildkite extends LegacyService {
         namedParams: {
           identifier: '3826789cf8890b426057e6fe1c4e683bdf04fa24d498885489',
         },
-        staticPreview: {
-          label: 'build',
-          message: 'passing',
-          color: 'brightgreen',
-        },
+        staticPreview: renderBuildStatusBadge({ status: 'passing' }),
       },
       {
         title: 'Buildkite (branch)',
@@ -43,53 +38,27 @@ module.exports = class Buildkite extends LegacyService {
           identifier: '3826789cf8890b426057e6fe1c4e683bdf04fa24d498885489',
           branch: 'master',
         },
-        staticPreview: {
-          label: 'build',
-          message: 'passing',
-          color: 'brightgreen',
-        },
+        staticPreview: renderBuildStatusBadge({ status: 'passing' }),
       },
     ]
   }
 
-  static registerLegacyRouteHandler({ camp, cache }) {
-    camp.route(
-      /^\/buildkite\/([^/]+)(?:\/(.+))?\.(svg|png|gif|jpg|json)$/,
-      cache((data, match, sendBadge, request) => {
-        const identifier = match[1] // eg, 3826789cf8890b426057e6fe1c4e683bdf04fa24d498885489
-        const branch = match[2] || 'master' // Defaults to master if not specified
-        const format = match[3]
+  static get defaultBadgeData() {
+    return { label: 'build' }
+  }
 
-        const url = `https://badge.buildkite.com/${identifier}.json?branch=${branch}`
-        const badgeData = getBadgeData('build', data)
+  async fetch({ identifier, branch }) {
+    const url = `https://badge.buildkite.com/${identifier}.json`
+    const options = { qs: { branch } }
+    return this._requestJson({
+      schema,
+      url,
+      options,
+    })
+  }
 
-        request(url, (err, res, buffer) => {
-          if (checkErrorResponse(badgeData, err, res)) {
-            sendBadge(format, badgeData)
-            return
-          }
-
-          try {
-            const data = JSON.parse(buffer)
-            const status = data.status
-            if (status === 'passing') {
-              badgeData.text[1] = 'passing'
-              badgeData.colorscheme = 'brightgreen'
-            } else if (status === 'failing') {
-              badgeData.text[1] = 'failing'
-              badgeData.colorscheme = 'red'
-            } else {
-              badgeData.text[1] = 'unknown'
-              badgeData.colorscheme = 'lightgray'
-            }
-
-            sendBadge(format, badgeData)
-          } catch (e) {
-            badgeData.text[1] = 'invalid'
-            sendBadge(format, badgeData)
-          }
-        })
-      })
-    )
+  async handle({ identifier, branch }) {
+    const json = await this.fetch({ identifier, branch })
+    return renderBuildStatusBadge({ status: json.status })
   }
 }

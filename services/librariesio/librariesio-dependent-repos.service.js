@@ -1,36 +1,50 @@
 'use strict'
 
-const { metric } = require('../../lib/text-formatters')
-const LibrariesIoBase = require('./librariesio-base')
+const { metric } = require('../text-formatters')
+const { fetchProject } = require('./librariesio-common')
+const { BaseJsonService } = require('..')
 
 // https://libraries.io/api#project-dependent-repositories
-class LibrariesIoDependentRepos extends LibrariesIoBase {
+module.exports = class LibrariesIoDependentRepos extends BaseJsonService {
   static get category() {
     return 'other'
   }
 
-  static get defaultBadgeData() {
-    return {
-      label: 'dependent repos',
-    }
-  }
-
   static get route() {
-    return this.buildRoute('librariesio/dependent-repos')
+    return {
+      base: 'librariesio/dependent-repos',
+      pattern: ':platform/:scope(@[^/]+)?/:packageName',
+    }
   }
 
   static get examples() {
     return [
       {
         title: 'Dependent repos (via libraries.io)',
-        pattern: ':platform/:library',
+        pattern: ':platform/:packageName',
         namedParams: {
           platform: 'npm',
-          library: 'got',
+          packageName: 'got',
         },
         staticPreview: this.render({ dependentReposCount: 84000 }),
       },
+      {
+        title: 'Dependent repos (via libraries.io), scoped npm package',
+        pattern: ':platform/:scope/:packageName',
+        namedParams: {
+          platform: 'npm',
+          scope: '@babel',
+          packageName: 'core',
+        },
+        staticPreview: this.render({ dependentReposCount: 50 }),
+      },
     ]
+  }
+
+  static get defaultBadgeData() {
+    return {
+      label: 'dependent repos',
+    }
   }
 
   static render({ dependentReposCount }) {
@@ -40,16 +54,15 @@ class LibrariesIoDependentRepos extends LibrariesIoBase {
     }
   }
 
-  async handle({ platform, packageName }) {
-    const { dependent_repos_count: dependentReposCount } = await this.fetch(
+  async handle({ platform, scope, packageName }) {
+    const { dependent_repos_count: dependentReposCount } = await fetchProject(
+      this,
       {
         platform,
+        scope,
         packageName,
-      },
-      { allowPackages: true }
+      }
     )
     return this.constructor.render({ dependentReposCount })
   }
 }
-
-module.exports = LibrariesIoDependentRepos
