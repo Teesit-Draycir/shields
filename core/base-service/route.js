@@ -1,43 +1,41 @@
 'use strict'
 
-const escapeStringRegexp = require('escape-string-regexp')
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const pathToRegexp = require('path-to-regexp')
 
 function makeFullUrl(base, partialUrl) {
   return `/${[base, partialUrl].filter(Boolean).join('/')}`
 }
 
-const isValidRoute = Joi.object({
-  base: Joi.string()
-    .allow('')
-    .required(),
+const routeSchema = Joi.object({
+  base: Joi.string().allow(''),
   pattern: Joi.string().allow(''),
   format: Joi.string(),
   capture: Joi.alternatives().when('format', {
     is: Joi.string().required(),
     then: Joi.array().items(Joi.string().required()),
   }),
-  queryParamSchema: Joi.object().schema(),
+  queryParams: Joi.array().items(Joi.string().required()),
 })
   .xor('pattern', 'format')
   .required()
 
 function assertValidRoute(route, message = undefined) {
-  Joi.assert(route, isValidRoute, message)
+  Joi.assert(route, routeSchema, message)
 }
 
-function prepareRoute({ base, pattern, format, capture, withPng }) {
-  const extensionRegex = ['', '.svg', '.json']
-    .concat(withPng ? ['.png'] : [])
-    .map(escapeStringRegexp)
-    .join('|')
+function prepareRoute({ base, pattern, format, capture }) {
   let regex, captureNames
   if (pattern === undefined) {
-    regex = new RegExp(`^${makeFullUrl(base, format)}(${extensionRegex})$`)
+    regex = new RegExp(
+      `^${makeFullUrl(base, format)}\\.(svg|png|gif|jpg|json)$`
+    )
     captureNames = capture || []
   } else {
-    const fullPattern = `${makeFullUrl(base, pattern)}:ext(${extensionRegex})`
+    const fullPattern = `${makeFullUrl(
+      base,
+      pattern
+    )}.:ext(svg|png|gif|jpg|json)`
     const keys = []
     regex = pathToRegexp(fullPattern, keys, {
       strict: true,
@@ -55,8 +53,10 @@ function namedParamsForMatch(captureNames = [], match, ServiceClass) {
 
   if (captureNames.length !== captures.length) {
     throw new Error(
-      `Service ${ServiceClass.name} declares incorrect number of named params ` +
-        `(expected ${captures.length}, got ${captureNames.length})`
+      `Service ${
+        ServiceClass.name
+      } declares incorrect number of capture groups ` +
+        `(expected ${captureNames.length}, got ${captures.length})`
     )
   }
 
@@ -67,20 +67,9 @@ function namedParamsForMatch(captureNames = [], match, ServiceClass) {
   return result
 }
 
-function getQueryParamNames({ queryParamSchema }) {
-  if (queryParamSchema) {
-    const { children, renames = [] } = Joi.describe(queryParamSchema)
-    return Object.keys(children).concat(renames.map(({ from }) => from))
-  } else {
-    return []
-  }
-}
-
 module.exports = {
   makeFullUrl,
-  isValidRoute,
   assertValidRoute,
   prepareRoute,
   namedParamsForMatch,
-  getQueryParamNames,
 }

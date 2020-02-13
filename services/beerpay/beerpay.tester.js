@@ -1,20 +1,24 @@
 'use strict'
 
+const Joi = require('joi')
 const { withRegex } = require('../test-validators')
-const t = (module.exports = require('../tester').createServiceTester())
 
 const amountOfMoney = withRegex(/^\$[0-9]+(\.[0-9]+)?/)
 
+const t = (module.exports = require('../tester').createServiceTester())
+
 t.create('funding')
   .get('/hashdog/scrapfy-chrome-extension.json')
-  .expectBadge({
-    label: 'beerpay',
-    message: amountOfMoney,
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'beerpay',
+      value: amountOfMoney,
+    })
+  )
 
 t.create('funding (unknown project)')
   .get('/hashdog/not-a-real-project.json')
-  .expectBadge({
-    label: 'beerpay',
-    message: 'project not found',
+  .expectJSON({
+    name: 'beerpay',
+    value: 'project not found',
   })

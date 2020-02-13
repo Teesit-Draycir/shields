@@ -1,6 +1,7 @@
 'use strict'
 
 const makeBadge = require('../../gh-badges/lib/make-badge')
+const analytics = require('../server/analytics')
 const BaseService = require('./base')
 const {
   serverHasBeenUpSinceResourceCached,
@@ -11,17 +12,15 @@ const coalesceBadge = require('./coalesce-badge')
 const { prepareRoute, namedParamsForMatch } = require('./route')
 
 module.exports = class BaseStaticService extends BaseService {
-  static register({ camp, requestCounter }, serviceConfig) {
+  static register({ camp }, serviceConfig) {
     const {
       profiling: { makeBadge: shouldProfileMakeBadge },
     } = serviceConfig
     const { regex, captureNames } = prepareRoute(this.route)
 
-    const serviceRequestCounter = this._createServiceRequestCounter({
-      requestCounter,
-    })
-
     camp.route(regex, async (queryParams, match, end, ask) => {
+      analytics.noteRequest(queryParams, match)
+
       if (serverHasBeenUpSinceResourceCached(ask.req)) {
         // Send Not Modified.
         ask.res.statusCode = 304
@@ -45,7 +44,7 @@ module.exports = class BaseStaticService extends BaseService {
       )
 
       // The final capture group is the extension.
-      const format = (match.slice(-1)[0] || '.svg').replace(/^\./, '')
+      const format = match.slice(-1)[0]
       badgeData.format = format
 
       if (shouldProfileMakeBadge) {
@@ -59,8 +58,6 @@ module.exports = class BaseStaticService extends BaseService {
       setCacheHeadersForStaticResource(ask.res)
 
       makeSend(format, ask.res, end)(svg)
-
-      serviceRequestCounter.inc()
     })
   }
 }

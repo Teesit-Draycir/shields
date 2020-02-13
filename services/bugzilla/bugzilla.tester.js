@@ -1,7 +1,7 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const t = (module.exports = require('../tester').createServiceTester())
+const Joi = require('joi')
+const { ServiceTester } = require('../tester')
 
 const bzBugStatus = Joi.equal(
   'unconfirmed',
@@ -15,20 +15,25 @@ const bzBugStatus = Joi.equal(
   'incomplete'
 )
 
+const t = (module.exports = new ServiceTester({
+  id: 'bugzilla',
+  title: 'Bugzilla',
+}))
+
 t.create('Bugzilla valid bug status')
   .get('/996038.json')
-  .expectBadge({
-    label: 'bug 996038',
-    message: bzBugStatus,
-  })
-
-t.create('Bugzilla valid bug status with custom baseUrl')
-  .get('/545424.json?baseUrl=https://bugs.eclipse.org/bugs')
-  .expectBadge({
-    label: 'bug 545424',
-    message: bzBugStatus,
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'bug 996038',
+      value: bzBugStatus,
+    })
+  )
 
 t.create('Bugzilla invalid bug status')
-  .get('/102.json?baseUrl=https://bugzilla.gnome.org')
-  .expectBadge({ label: 'bugzilla', message: 'not found' })
+  .get('/83548978974387943879.json')
+  .expectJSON({ name: 'bug 83548978974387943879', value: 'not found' })
+
+t.create('Bugzilla failed request bug status')
+  .get('/996038.json')
+  .networkOff()
+  .expectJSON({ name: 'bug 996038', value: 'inaccessible' })

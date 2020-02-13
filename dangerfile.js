@@ -11,25 +11,36 @@
 // DANGER_GITHUB_API_TOKEN=your-github-api-token npm run danger -- pr https://github.com/badges/shields/pull/2665
 
 const { danger, fail, message, warn } = require('danger')
+const chainsmoker = require('chainsmoker')
 const { default: noTestShortcuts } = require('danger-plugin-no-test-shortcuts')
-const { fileMatch } = danger.git
+
+const fileMatch = chainsmoker({
+  created: danger.git.created_files,
+  modified: danger.git.modified_files,
+  createdOrModified: danger.git.modified_files.concat(danger.git.created_files),
+  deleted: danger.git.deleted_files,
+})
 
 const documentation = fileMatch(
   '**/*.md',
   'lib/all-badge-examples.js',
-  'frontend/components/usage.js',
-  'frontend/pages/endpoint.js'
+  'frontend/components/usage.js'
 )
-const server = fileMatch('core/server/**.js', '!*.spec.js')
-const serverTests = fileMatch('core/server/**.spec.js')
-const legacyHelpers = fileMatch('lib/**/*.js', '!*.spec.js')
-const legacyHelperTests = fileMatch('lib/**/*.spec.js')
+const server = fileMatch('server.js')
+const serverTests = fileMatch('server.spec.js')
+const helpers = fileMatch(
+  'lib/**/*.js',
+  '!**/*.spec.js',
+  '!lib/all-badge-examples.js'
+)
 const logos = fileMatch('logo/*.svg')
+const helperTests = fileMatch('lib/**/*.spec.js')
 const packageJson = fileMatch('package.json')
 const packageLock = fileMatch('package-lock.json')
 const secretsDocs = fileMatch('doc/server-secrets.md')
 const capitals = fileMatch('**/*[A-Z]*.js')
 const underscores = fileMatch('**/*_*.js')
+const targetBranch = danger.github.pr.base.ref
 
 message(
   [
@@ -38,14 +49,13 @@ message(
   ].join('')
 )
 
-const targetBranch = danger.github.pr.base.ref
 if (targetBranch !== 'master') {
   const message = `This PR targets \`${targetBranch}\``
   const idea = 'It is likely that the target branch should be `master`'
   warn(`${message} - <i>${idea}</i>`)
 }
 
-if (documentation.edited) {
+if (documentation.createdOrModified) {
   message(
     [
       'Thanks for contributing to our documentation. ',
@@ -69,9 +79,14 @@ if (server.modified && !serverTests.modified) {
   )
 }
 
-if (legacyHelpers.created) {
-  warn(['This PR added helper modules in `lib/` which is deprecated.'].join(''))
-} else if (legacyHelpers.edited && !legacyHelperTests.edited) {
+if (helpers.created && !helperTests.created) {
+  warn(
+    [
+      'This PR added helper modules in `lib/` but not accompanying tests. <br>',
+      'Generally helper modules should have their own tests.',
+    ].join('')
+  )
+} else if (helpers.createdOrModified && !helperTests.createdOrModified) {
   warn(
     [
       'This PR modified helper functions in `lib/` but not accompanying tests. <br>',
@@ -106,40 +121,24 @@ if (allFiles.length > 100) {
   warn("Lots 'o changes. Skipping diff-based checks.")
 } else {
   allFiles.forEach(file => {
-    if (file === 'dangerfile.js') {
-      return
-    }
-
     // eslint-disable-next-line promise/prefer-await-to-then
     danger.git.diffForFile(file).then(({ diff }) => {
-      if (
-        (diff.includes('authHelper') || diff.includes('serverSecrets')) &&
-        !secretsDocs.modified
-      ) {
+      if (/serverSecrets/.test(diff) && !secretsDocs.modified) {
         warn(
           [
-            `:books: Remember to ensure any changes to \`config.private\` `,
+            `:books: Remember to ensure any changes to \`serverSecrets\` `,
             `in \`${file}\` are reflected in the [server secrets documentation]`,
             '(https://github.com/badges/shields/blob/master/doc/server-secrets.md)',
           ].join('')
         )
       }
 
-      if (diff.includes('.assert(')) {
+      if (/\+.*assert[(.]/.test(diff)) {
         warn(
           [
             `Found 'assert' statement added in \`${file}\`. <br>`,
             'Please ensure tests are written using Chai ',
             '[expect syntax](http://chaijs.com/guide/styles/#expect)',
-          ].join('')
-        )
-      }
-
-      if (diff.includes("require('joi')")) {
-        fail(
-          [
-            `Found import of 'joi' in \`${file}\`. <br>`,
-            "Joi must be imported as '@hapi/joi'.",
           ].join('')
         )
       }

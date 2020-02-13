@@ -12,6 +12,10 @@ module.exports = class PypiImplementation extends PypiBase {
     return this.buildRoute('pypi/implementation')
   }
 
+  static get defaultBadgeData() {
+    return { label: 'implementation' }
+  }
+
   static get examples() {
     return [
       {
@@ -22,10 +26,6 @@ module.exports = class PypiImplementation extends PypiBase {
         keywords: ['python'],
       },
     ]
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'implementation' }
   }
 
   static render({ implementations }) {

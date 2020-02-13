@@ -1,8 +1,8 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { nonNegativeInteger } = require('../validators')
+const Joi = require('joi')
 const { BaseJsonService } = require('..')
+const { nonNegativeInteger } = require('../validators')
 
 // https://developer.opencollective.com/#/api/collectives?id=get-info
 const collectiveDetailsSchema = Joi.object().keys({

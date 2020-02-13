@@ -1,6 +1,6 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const { BaseJsonService } = require('..')
 
 const validatorSchema = Joi.object()
@@ -15,8 +15,8 @@ const validatorSchema = Joi.object()
   .required()
 
 module.exports = class SwaggerValidatorService extends BaseJsonService {
-  static get category() {
-    return 'other'
+  static render({ message, clr }) {
+    return { message, color: clr }
   }
 
   static get route() {
@@ -26,27 +26,19 @@ module.exports = class SwaggerValidatorService extends BaseJsonService {
     }
   }
 
-  static get examples() {
-    return [
-      {
-        title: 'Swagger Validator',
-        pattern: ':scheme/:url',
-        staticPreview: this.render({ message: 'valid', clr: 'brightgreen' }),
-        namedParams: {
-          scheme: 'https',
-          url:
-            'raw.githubusercontent.com/OAI/OpenAPI-Specification/master/examples/v2.0/json/petstore-expanded.json',
-        },
-      },
-    ]
-  }
-
   static get defaultBadgeData() {
     return { label: 'swagger' }
   }
 
-  static render({ message, clr }) {
-    return { message, color: clr }
+  async handle({ scheme, url }) {
+    const json = await this.fetch({ scheme, urlF: url })
+    const valMessages = json.schemaValidationMessages
+
+    if (!valMessages || valMessages.length === 0) {
+      return this.constructor.render({ message: 'valid', clr: 'brightgreen' })
+    } else {
+      return this.constructor.render({ message: 'invalid', clr: 'red' })
+    }
   }
 
   async fetch({ scheme, urlF }) {
@@ -62,14 +54,22 @@ module.exports = class SwaggerValidatorService extends BaseJsonService {
     })
   }
 
-  async handle({ scheme, url }) {
-    const json = await this.fetch({ scheme, urlF: url })
-    const valMessages = json.schemaValidationMessages
+  static get category() {
+    return 'other'
+  }
 
-    if (!valMessages || valMessages.length === 0) {
-      return this.constructor.render({ message: 'valid', clr: 'brightgreen' })
-    } else {
-      return this.constructor.render({ message: 'invalid', clr: 'red' })
-    }
+  static get examples() {
+    return [
+      {
+        title: 'Swagger Validator',
+        pattern: ':scheme/:url',
+        staticPreview: this.render({ message: 'valid', clr: 'brightgreen' }),
+        namedParams: {
+          scheme: 'https',
+          url:
+            'raw.githubusercontent.com/OAI/OpenAPI-Specification/master/examples/v2.0/json/petstore-expanded.json',
+        },
+      },
+    ]
   }
 }

@@ -1,8 +1,8 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { renderLicenseBadge } = require('../licenses')
-const { renderVersionBadge } = require('../version')
+const Joi = require('joi')
+const { renderLicenseBadge } = require('../../lib/licenses')
+const { renderVersionBadge } = require('../../lib/version')
 const { BaseJsonService } = require('..')
 
 const schema = Joi.object({
@@ -15,10 +15,6 @@ const schema = Joi.object({
 }).required()
 
 class BaseCtanService extends BaseJsonService {
-  static get defaultBadgeData() {
-    return { label: 'ctan' }
-  }
-
   async fetch({ library }) {
     const url = `http://www.ctan.org/json/pkg/${library}`
     return this._requestJson({
@@ -26,11 +22,29 @@ class BaseCtanService extends BaseJsonService {
       url,
     })
   }
+
+  static get defaultBadgeData() {
+    return { label: 'ctan' }
+  }
 }
 
 class CtanLicense extends BaseCtanService {
+  static get defaultBadgeData() {
+    return { label: 'license' }
+  }
+
   static get category() {
     return 'license'
+  }
+
+  async handle({ library }) {
+    const json = await this.fetch({ library })
+    // when present, API returns licenses inconsistently ordered, so fix the order
+    return renderLicenseBadge({ licenses: json.license && json.license.sort() })
+  }
+
+  static render({ licenses }) {
+    return renderLicenseBadge({ licenses })
   }
 
   static get route() {
@@ -50,25 +64,20 @@ class CtanLicense extends BaseCtanService {
       },
     ]
   }
-
-  static get defaultBadgeData() {
-    return { label: 'license' }
-  }
-
-  static render({ licenses }) {
-    return renderLicenseBadge({ licenses })
-  }
-
-  async handle({ library }) {
-    const json = await this.fetch({ library })
-    // when present, API returns licenses inconsistently ordered, so fix the order
-    return renderLicenseBadge({ licenses: json.license && json.license.sort() })
-  }
 }
 
 class CtanVersion extends BaseCtanService {
   static get category() {
     return 'version'
+  }
+
+  async handle({ library }) {
+    const json = await this.fetch({ library })
+    return renderVersionBadge({ version: json.version.number })
+  }
+
+  static render({ version }) {
+    return renderVersionBadge({ version })
   }
 
   static get route() {
@@ -87,15 +96,6 @@ class CtanVersion extends BaseCtanService {
         keywords: ['tex'],
       },
     ]
-  }
-
-  static render({ version }) {
-    return renderVersionBadge({ version })
-  }
-
-  async handle({ library }) {
-    const json = await this.fetch({ library })
-    return renderVersionBadge({ version: json.version.number })
   }
 }
 

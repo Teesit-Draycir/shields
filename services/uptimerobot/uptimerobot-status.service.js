@@ -3,6 +3,12 @@
 const UptimeRobotBase = require('./uptimerobot-base')
 
 module.exports = class UptimeRobotStatus extends UptimeRobotBase {
+  static get defaultBadgeData() {
+    return {
+      label: 'status',
+    }
+  }
+
   static get route() {
     return {
       base: 'uptimerobot/status',
@@ -20,12 +26,6 @@ module.exports = class UptimeRobotStatus extends UptimeRobotBase {
         staticPreview: this.render({ status: 2 }),
       },
     ]
-  }
-
-  static get defaultBadgeData() {
-    return {
-      label: 'status',
-    }
   }
 
   static render({ status }) {

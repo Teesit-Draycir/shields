@@ -3,29 +3,11 @@
 const { BaseSpigetService, documentation, keywords } = require('./spiget-base')
 
 module.exports = class SpigetTestedVersions extends BaseSpigetService {
-  static get category() {
-    return 'platform-support'
-  }
-
   static get route() {
     return {
       base: 'spiget/tested-versions',
-      pattern: ':resourceId',
+      pattern: ':resourceid',
     }
-  }
-
-  static get examples() {
-    return [
-      {
-        title: 'Spiget tested server versions',
-        namedParams: {
-          resourceId: '9089',
-        },
-        staticPreview: this.render({ versions: '1.7-1.13' }),
-        documentation,
-        keywords,
-      },
-    ]
   }
 
   static get defaultBadgeData() {
@@ -35,10 +17,10 @@ module.exports = class SpigetTestedVersions extends BaseSpigetService {
     }
   }
 
-  static render({ versions }) {
-    return {
-      message: versions,
-    }
+  async handle({ resourceid }) {
+    const { testedVersions } = await this.fetch({ resourceid })
+    const { versions } = this.transform({ testedVersions })
+    return this.constructor.render({ versions })
   }
 
   transform({ testedVersions }) {
@@ -53,9 +35,23 @@ module.exports = class SpigetTestedVersions extends BaseSpigetService {
     return { versions }
   }
 
-  async handle({ resourceId }) {
-    const { testedVersions } = await this.fetch({ resourceId })
-    const { versions } = this.transform({ testedVersions })
-    return this.constructor.render({ versions })
+  static render({ versions }) {
+    return {
+      message: versions,
+    }
+  }
+
+  static get examples() {
+    return [
+      {
+        title: 'Spiget Tested Versions',
+        namedParams: {
+          resourceid: '9089',
+        },
+        staticPreview: this.render({ versions: '1.7-1.13' }),
+        documentation,
+        keywords,
+      },
+    ]
   }
 }

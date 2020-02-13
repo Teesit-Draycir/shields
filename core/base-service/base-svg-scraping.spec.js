@@ -2,12 +2,15 @@
 
 const { expect } = require('chai')
 const sinon = require('sinon')
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
+const { makeBadgeData } = require('../../lib/badge-data')
 const makeBadge = require('../../gh-badges/lib/make-badge')
 const BaseSvgScrapingService = require('./base-svg-scraping')
 
 function makeExampleSvg({ label, message }) {
-  return makeBadge({ text: ['this is the label', 'this is the result!'] })
+  const badgeData = makeBadgeData('this is the label', {})
+  badgeData.text[1] = 'this is the result!'
+  return makeBadge(badgeData)
 }
 
 const schema = Joi.object({
@@ -121,10 +124,6 @@ describe('BaseSvgScrapingService', function() {
 
     it('allows overriding the valueMatcher', async function() {
       class WithValueMatcher extends BaseSvgScrapingService {
-        static get route() {
-          return {}
-        }
-
         async handle() {
           return this._requestSvg({
             schema,

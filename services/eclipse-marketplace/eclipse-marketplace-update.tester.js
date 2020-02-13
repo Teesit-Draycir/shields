@@ -1,18 +1,22 @@
 'use strict'
 
+const Joi = require('joi')
 const { isFormattedDate } = require('../test-validators')
+
 const t = (module.exports = require('../tester').createServiceTester())
 
 t.create('last update date')
   .get('/notepad4e.json')
-  .expectBadge({
-    label: 'updated',
-    message: isFormattedDate,
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'updated',
+      value: isFormattedDate,
+    })
+  )
 
 t.create('last update for unknown solution')
   .get('/this-does-not-exist.json')
-  .expectBadge({
-    label: 'updated',
-    message: 'solution not found',
+  .expectJSON({
+    name: 'updated',
+    value: 'solution not found',
   })

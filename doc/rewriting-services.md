@@ -1,5 +1,3 @@
-**_WARNING: all legacy services have been rewritten, this document may contain outdated information._**
-
 # Tips for rewriting legacy services
 
 ## Background
@@ -126,9 +124,11 @@ class ExampleDownloads extends BaseJsonService {
 t.create('build status')
   .get('/pip.json')
   .only() // Prevent this ServiceTester from running its other tests.
-  .expectBadge(
-    label: 'docs',
-    message: Joi.alternatives().try(isBuildStatus, Joi.equal('unknown')),
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'docs',
+      value: Joi.alternatives().try(isBuildStatus, Joi.equal('unknown')),
+    })
   )
 ```
 
@@ -152,7 +152,7 @@ Once the route is working, fill out `render()` and `handle()`.
 <details>
 
 ```js
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const { errorMessagesFor } = require('./github-helpers')
 
 const issueSchema = Joi.object({
@@ -181,7 +181,7 @@ or create an abstract superclass like **PypiBase**:
 <details>
 
 ```js
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const BaseJsonService = require('../base-json')
 
 const schema = Joi.object({

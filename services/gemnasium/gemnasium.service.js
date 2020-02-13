@@ -6,8 +6,7 @@ module.exports = deprecatedService({
   category: 'dependencies',
   route: {
     base: 'gemnasium',
-    pattern: ':various+',
+    format: '(?:.+)',
   },
   label: 'gemnasium',
-  dateAdded: new Date('2018-05-15'),
 })

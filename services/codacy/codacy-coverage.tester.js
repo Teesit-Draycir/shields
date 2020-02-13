@@ -1,32 +1,38 @@
 'use strict'
 
+const Joi = require('joi')
 const { isIntegerPercentage } = require('../test-validators')
+
 const t = (module.exports = require('../tester').createServiceTester())
 
 t.create('Coverage')
   .get('/59d607d0e311408885e418004068ea58.json')
-  .expectBadge({
-    label: 'coverage',
-    message: isIntegerPercentage,
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'coverage',
+      value: isIntegerPercentage,
+    })
+  )
 
 t.create('Coverage on branch')
   .get('/59d607d0e311408885e418004068ea58/master.json')
-  .expectBadge({
-    label: 'coverage',
-    message: isIntegerPercentage,
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'coverage',
+      value: isIntegerPercentage,
+    })
+  )
 
 t.create('Coverage not enabled')
   .get('/e27821fb6289410b8f58338c7e0bc686.json')
-  .expectBadge({
-    label: 'coverage',
-    message: 'not enabled for this project',
+  .expectJSON({
+    name: 'coverage',
+    value: 'not enabled for this project',
   })
 
 t.create('Coverage (project not found)')
   .get('/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.json')
-  .expectBadge({
-    label: 'coverage',
-    message: 'project not found',
+  .expectJSON({
+    name: 'coverage',
+    value: 'project not found',
   })

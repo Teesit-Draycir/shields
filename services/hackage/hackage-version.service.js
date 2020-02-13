@@ -1,7 +1,7 @@
 'use strict'
 
-const { renderVersionBadge } = require('../version')
 const { BaseService, InvalidResponse } = require('..')
+const { renderVersionBadge } = require('../../lib/version')
 
 module.exports = class HackageVersion extends BaseService {
   static get category() {
@@ -15,6 +15,10 @@ module.exports = class HackageVersion extends BaseService {
     }
   }
 
+  static get defaultBadgeData() {
+    return { label: 'hackage' }
+  }
+
   static get examples() {
     return [
       {
@@ -23,10 +27,6 @@ module.exports = class HackageVersion extends BaseService {
         staticPreview: renderVersionBadge({ version: '4.1.7' }),
       },
     ]
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'hackage' }
   }
 
   async fetch({ packageName }) {

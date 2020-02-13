@@ -1,19 +1,14 @@
 'use strict'
-/**
- * @module
- */
 
 const { BaseJsonService } = require('..')
 
 /**
  * The steam api is based like /{interface}/{method}/v{version}/
- *
  * @see https://partner.steamgames.com/doc/webapi_overview#2
  */
-class BaseSteamAPI extends BaseJsonService {
+module.exports = class BaseSteamAPI extends BaseJsonService {
   /**
    * Steam API Interface
-   *
    * @see https://partner.steamgames.com/doc/webapi_overview#2
    */
   static get interf() {
@@ -22,7 +17,6 @@ class BaseSteamAPI extends BaseJsonService {
 
   /**
    * Steam API Method
-   *
    * @see https://partner.steamgames.com/doc/webapi_overview#2
    */
   static get method() {
@@ -31,7 +25,6 @@ class BaseSteamAPI extends BaseJsonService {
 
   /**
    * Steam API Version
-   *
    * @see https://partner.steamgames.com/doc/webapi_overview#2
    */
   static get version() {
@@ -53,5 +46,3 @@ class BaseSteamAPI extends BaseJsonService {
     })
   }
 }
-
-module.exports = BaseSteamAPI

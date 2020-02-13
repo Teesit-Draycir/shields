@@ -1,6 +1,6 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const { ServiceTester } = require('../tester')
 const { isSemver } = require('../test-validators')
 const { semverRange } = require('../validators')
@@ -13,77 +13,91 @@ const t = (module.exports = new ServiceTester({
 
 t.create('Package version')
   .get('/v/badges/shields.json')
-  .expectBadge({
-    label: 'version',
-    message: isSemver,
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'version',
+      value: isSemver,
+    })
+  )
 
 t.create('Package version (repo not found)')
   .get('/v/badges/helmets.json')
-  .expectBadge({
-    label: 'version',
-    message: 'repo not found, branch not found, or package.json missing',
+  .expectJSON({
+    name: 'version',
+    value: 'repo not found, branch not found, or package.json missing',
   })
 
 t.create('Package name')
   .get('/n/badges/shields.json')
-  .expectBadge({ label: 'name', message: 'shields.io' })
+  .expectJSON({ name: 'name', value: 'shields.io' })
 
 t.create('Package name - Custom label')
   .get('/name/badges/shields.json?label=Dev Name')
-  .expectBadge({ label: 'Dev Name', message: 'shields.io' })
+  .expectJSON({ name: 'Dev Name', value: 'shields.io' })
 
 t.create('Package array')
   .get('/keywords/badges/shields.json')
-  .expectBadge({
-    label: 'keywords',
-    message: Joi.string().regex(/.*?,/),
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'keywords',
+      value: Joi.string().regex(/.*?,/),
+    })
+  )
 
 t.create('Package object')
   .get('/dependencies/badges/shields.json')
-  .expectBadge({ label: 'package.json', message: 'invalid key value' })
+  .expectJSON({ name: 'package.json', value: 'invalid key value' })
 
 t.create('Peer dependency version')
   .get('/dependency-version/paulmelnikow/react-boxplot/peer/react.json')
-  .expectBadge({
-    label: 'react',
-    message: semverRange,
-  })
+  .expectJSONTypes(
+    Joi.object({
+      name: 'react',
+      value: semverRange,
+    })
+  )
 
 t.create('Dev dependency version')
   .get(
     '/dependency-version/paulmelnikow/react-boxplot/dev/react.json?label=react%20tested'
   )
-  .expectBadge({
-    label: 'react tested',
-    message: semverRange,
-  })
+  .expectJSONTypes(
+    Joi.object({
+      name: 'react tested',
+      value: semverRange,
+    })
+  )
 
 t.create('Prod prod dependency version')
   .get('/dependency-version/paulmelnikow/react-boxplot/simple-statistics.json')
-  .expectBadge({
-    label: 'simple-statistics',
-    message: semverRange,
-  })
+  .expectJSONTypes(
+    Joi.object({
+      name: 'simple-statistics',
+      value: semverRange,
+    })
+  )
 
 t.create('Scoped dependency')
   .get('/dependency-version/badges/shields/dev/@babel/core.json')
-  .expectBadge({
-    label: '@babel/core',
-    message: semverRange,
-  })
+  .expectJSONTypes(
+    Joi.object({
+      name: '@babel/core',
+      value: semverRange,
+    })
+  )
 
 t.create('Scoped dependency on branch')
   .get('/dependency-version/zeit/next.js/dev/babel-eslint/alpha.json')
-  .expectBadge({
-    label: 'babel-eslint',
-    message: semverRange,
-  })
+  .expectJSONTypes(
+    Joi.object({
+      name: 'babel-eslint',
+      value: semverRange,
+    })
+  )
 
 t.create('Unknown dependency')
   .get('/dependency-version/paulmelnikow/react-boxplot/dev/i-made-this-up.json')
-  .expectBadge({
-    label: 'dependency',
-    message: 'dev dependency not found',
+  .expectJSON({
+    name: 'dependency',
+    value: 'dev dependency not found',
   })

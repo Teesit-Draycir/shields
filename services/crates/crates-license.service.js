@@ -10,7 +10,8 @@ module.exports = class CratesLicense extends BaseCratesService {
   static get route() {
     return {
       base: 'crates/l',
-      pattern: ':crate/:version?',
+      format: '([A-Za-z0-9_-]+)(?:/([0-9.]+))?',
+      capture: ['crate', 'version'],
     }
   }
 

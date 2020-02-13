@@ -21,56 +21,58 @@ templateFiles.forEach(async filename => {
   const extension = path.extname(filename).slice(1)
   const style = filename.slice(0, -`-template.${extension}`.length)
   // Compile the template. Necessary to always have a working template.
-  templates[style] = dot.template(templateData)
-  // Substitute dot code.
-  const mapping = new Map()
-  let mappingIndex = 1
-  const untemplatedSvg = templateData.replace(/{{.*?}}/g, match => {
-    // Weird substitution that currently works for all templates.
-    const mapKey = `99999990${mappingIndex}.1`
-    mappingIndex++
-    mapping.set(mapKey, match)
-    return mapKey
-  })
-
-  const svgo = new SVGO()
-  const { data, error } = await svgo.optimize(untemplatedSvg)
-
-  if (error !== undefined) {
-    console.error(
-      `Template ${filename}: ${error}\n` +
-        '  Generated untemplated SVG:\n' +
-        `---\n${untemplatedSvg}---\n`
-    )
-    return
-  }
-
-  // Substitute dot code back.
-  let svg = data
-  const unmappedKeys = []
-  mapping.forEach((value, key) => {
-    let keySubstituted = false
-    svg = svg.replace(RegExp(key, 'g'), () => {
-      keySubstituted = true
-      return value
+  templates[`${style}-${extension}`] = dot.template(templateData)
+  if (extension === 'svg') {
+    // Substitute dot code.
+    const mapping = new Map()
+    let mappingIndex = 1
+    const untemplatedSvg = templateData.replace(/{{.*?}}/g, match => {
+      // Weird substitution that currently works for all templates.
+      const mapKey = `99999990${mappingIndex}.1`
+      mappingIndex++
+      mapping.set(mapKey, match)
+      return mapKey
     })
-    if (!keySubstituted) {
-      unmappedKeys.push(key)
-    }
-  })
-  if (unmappedKeys.length > 0) {
-    console.error(
-      `Template ${filename} has unmapped keys ` +
-        `${unmappedKeys.join(', ')}.\n` +
-        '  Generated untemplated SVG:\n' +
-        `---\n${untemplatedSvg}\n---\n` +
-        '  Generated template:\n' +
-        `---\n${svg}\n---\n`
-    )
-    return
-  }
 
-  templates[style] = dot.template(svg)
+    const svgo = new SVGO()
+    const { data, error } = await svgo.optimize(untemplatedSvg)
+
+    if (error !== undefined) {
+      console.error(
+        `Template ${filename}: ${error}\n` +
+          '  Generated untemplated SVG:\n' +
+          `---\n${untemplatedSvg}---\n`
+      )
+      return
+    }
+
+    // Substitute dot code back.
+    let svg = data
+    const unmappedKeys = []
+    mapping.forEach((value, key) => {
+      let keySubstituted = false
+      svg = svg.replace(RegExp(key, 'g'), () => {
+        keySubstituted = true
+        return value
+      })
+      if (!keySubstituted) {
+        unmappedKeys.push(key)
+      }
+    })
+    if (unmappedKeys.length > 0) {
+      console.error(
+        `Template ${filename} has unmapped keys ` +
+          `${unmappedKeys.join(', ')}.\n` +
+          '  Generated untemplated SVG:\n' +
+          `---\n${untemplatedSvg}\n---\n` +
+          '  Generated template:\n' +
+          `---\n${svg}\n---\n`
+      )
+      return
+    }
+
+    templates[`${style}-${extension}`] = dot.template(svg)
+  }
 })
 
 function escapeXml(s) {
@@ -90,11 +92,7 @@ function capitalize(s) {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
-/*
-note: makeBadge() is fairly thinly wrapped so if we are making changes here
-it is likely this will impact on the package's public interface in index.js
-*/
-module.exports = function makeBadge({
+function makeBadge({
   format,
   template,
   text,
@@ -111,39 +109,29 @@ module.exports = function makeBadge({
   // String coercion and whitespace removal.
   text = text.map(value => `${value}`.trim())
 
-  let [left, right] = text
-
-  color = normalizeColor(color || colorB || colorscheme)
-  labelColor = normalizeColor(labelColor || colorA)
-
-  // This ought to be the responsibility of the server, not `makeBadge`.
-  if (format === 'json') {
-    return JSON.stringify({
-      label: left,
-      message: right,
-      logoWidth,
-      color,
-      labelColor,
-      link: links,
-      name: left,
-      value: right,
-    })
+  if (format !== 'json') {
+    format = 'svg'
   }
 
-  if (!(template in templates)) {
-    if (template === 'popout-square') {
-      template = 'flat-square'
+  if (!(`${template}-${format}` in templates)) {
+    template = format === 'svg' ? 'flat' : 'default'
+  }
+  if (template.startsWith('popout')) {
+    if (logo) {
+      logoPosition =
+        logoPosition <= 10 && logoPosition >= -10 ? logoPosition : 0
+      logoWidth = +logoWidth || 32
     } else {
-      template = 'flat'
+      template = template.replace('popout', 'flat')
     }
   }
   if (template === 'social') {
-    left = capitalize(left)
+    text[0] = capitalize(text[0])
   } else if (template === 'for-the-badge') {
-    left = left.toUpperCase()
-    right = right.toUpperCase()
+    text = text.map(value => value.toUpperCase())
   }
 
+  const [left, right] = text
   let leftWidth = (anafanafo(left) / 10) | 0
   // Increase chances of pixel grid alignment.
   if (leftWidth % 2 === 0) {
@@ -164,22 +152,30 @@ module.exports = function makeBadge({
     logoPadding = logo ? 3 : 0
   }
 
+  color = color || colorB || colorscheme
+  labelColor = labelColor || colorA
+
   const context = {
     text: [left, right],
-    escapedText: [left, right].map(escapeXml),
+    escapedText: text.map(escapeXml),
     widths: [leftWidth + 10 + logoWidth + logoPadding, rightWidth + 10],
     links: links.map(escapeXml),
-    logo: escapeXml(logo),
+    logo,
     logoPosition,
     logoWidth,
     logoPadding,
+    // `color` and `labelColor` are included for the `_shields_test` template.
+    color: normalizeColor(color),
+    labelColor: normalizeColor(labelColor),
     colorA: toSvgColor(labelColor),
     colorB: toSvgColor(color),
     escapeXml,
   }
 
-  const templateFn = templates[template]
+  const templateFn = templates[`${template}-${format}`]
 
   // The call to template() can raise an exception.
   return templateFn(context)
 }
+
+module.exports = makeBadge

@@ -1,12 +1,9 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const TeamCityBase = require('./teamcity-base')
 
-// The statusText field will start with a summary, potentially including test details, followed by an optional suffix.
-// Regex was updated to account for that optional suffix to address reported bugs.
-// See https://github.com/badges/shields/issues/3244 for an example.
-const buildStatusTextRegex = /^Success|Failure|Error|Tests( failed: \d+( \(\d+ new\))?)?(,)?( passed: \d+)?(,)?( ignored: \d+)?(,)?( muted: \d+)?/
+const buildStatusTextRegex = /^Success|Failure|Error|Tests( failed: \d+( \(\d+ new\))?)?(,)?( passed: \d+)?(,)?( ignored: \d+)?(,)?( muted: \d+)?$/
 const buildStatusSchema = Joi.object({
   status: Joi.equal('SUCCESS', 'FAILURE', 'ERROR').required(),
   statusText: Joi.string()
@@ -15,6 +12,31 @@ const buildStatusSchema = Joi.object({
 }).required()
 
 module.exports = class TeamCityBuild extends TeamCityBase {
+  static render({ status, statusText, useVerbose }) {
+    if (status === 'SUCCESS') {
+      return {
+        message: 'passing',
+        color: 'brightgreen',
+      }
+    } else if (statusText && useVerbose) {
+      return {
+        message: statusText.toLowerCase(),
+        color: 'red',
+      }
+    } else {
+      return {
+        message: status.toLowerCase(),
+        color: 'red',
+      }
+    }
+  }
+
+  static get defaultBadgeData() {
+    return {
+      label: 'build',
+    }
+  }
+
   static get category() {
     return 'build'
   }
@@ -22,9 +44,7 @@ module.exports = class TeamCityBuild extends TeamCityBase {
   static get route() {
     return {
       base: 'teamcity',
-      // Do not base new services on this route pattern.
-      // See https://github.com/badges/shields/issues/3714
-      format: '(?:codebetter|(http|https)/(.+)/(s|e))/([^/]+?)',
+      format: '(?:codebetter|(http|https)/(.+)/(s|e))/([^/]+)',
       capture: ['protocol', 'hostAndPath', 'verbosity', 'buildId'],
     }
   }
@@ -46,7 +66,7 @@ module.exports = class TeamCityBuild extends TeamCityBase {
         pattern: ':protocol/:hostAndPath/s/:buildId',
         namedParams: {
           protocol: 'https',
-          hostAndPath: 'teamcity.jetbrains.com',
+          hostAndPath: 'https/teamcity.jetbrains.com',
           buildId: 'IntelliJIdeaCe_JavaDecompilerEngineTests',
         },
         staticPreview: this.render({
@@ -58,7 +78,7 @@ module.exports = class TeamCityBuild extends TeamCityBase {
         pattern: ':protocol/:hostAndPath/e/:buildId',
         namedParams: {
           protocol: 'https',
-          hostAndPath: 'teamcity.jetbrains.com',
+          hostAndPath: 'https/teamcity.jetbrains.com',
           buildId: 'bt345',
         },
         staticPreview: this.render({
@@ -69,31 +89,6 @@ module.exports = class TeamCityBuild extends TeamCityBase {
         keywords: ['test', 'test results'],
       },
     ]
-  }
-
-  static get defaultBadgeData() {
-    return {
-      label: 'build',
-    }
-  }
-
-  static render({ status, statusText, useVerbose }) {
-    if (status === 'SUCCESS') {
-      return {
-        message: 'passing',
-        color: 'brightgreen',
-      }
-    } else if (statusText && useVerbose) {
-      return {
-        message: statusText.toLowerCase(),
-        color: 'red',
-      }
-    } else {
-      return {
-        message: status.toLowerCase(),
-        color: 'red',
-      }
-    }
   }
 
   async handle({ protocol, hostAndPath, verbosity, buildId }) {

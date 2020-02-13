@@ -1,6 +1,6 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const { BaseJsonService, NotFound } = require('..')
 
 const latestBuildSchema = Joi.object({
@@ -9,16 +9,39 @@ const latestBuildSchema = Joi.object({
     .items(
       Joi.object({
         id: Joi.number().required(),
+        buildNumber: Joi.string().required(),
+      })
+    )
+    .required(),
+}).required()
+
+const latestReleaseSchema = Joi.object({
+  count: Joi.number().required(),
+  value: Joi.array()
+    .items(
+      Joi.object({
+        release: Joi.object({
+          id: Joi.number().required(),
+          artifacts: Joi.array().items(
+            Joi.object({
+              definitionReference: Joi.object({
+                version: Joi.object({
+                  name: Joi.string().required(),
+                }),
+              }),
+            }).required()
+          ),
+        }),
+        releaseEnvironment: Joi.object({
+          name: Joi.string().required(),
+        }),
+        deploymentStatus: Joi.string().required(),
       })
     )
     .required(),
 }).required()
 
 module.exports = class AzureDevOpsBase extends BaseJsonService {
-  static get auth() {
-    return { passKey: 'azure_devops_token' }
-  }
-
   async fetch({ url, options, schema, errorMessages }) {
     return this._requestJson({
       schema,
@@ -33,7 +56,27 @@ module.exports = class AzureDevOpsBase extends BaseJsonService {
     project,
     definitionId,
     branch,
-    auth,
+    headers,
+    errorMessages
+  ) {
+    const builInfo = await this.getLatestCompletedBuildInfo(
+      organization,
+      project,
+      definitionId,
+      branch,
+      headers,
+      errorMessages
+    )
+
+    return builInfo.id
+  }
+
+  async getLatestCompletedBuildInfo(
+    organization,
+    project,
+    definitionId,
+    branch,
+    headers,
     errorMessages
   ) {
     // Microsoft documentation: https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-5.0
@@ -45,7 +88,7 @@ module.exports = class AzureDevOpsBase extends BaseJsonService {
         statusFilter: 'completed',
         'api-version': '5.0-preview.4',
       },
-      auth,
+      headers,
     }
 
     if (branch) {
@@ -63,6 +106,44 @@ module.exports = class AzureDevOpsBase extends BaseJsonService {
       throw new NotFound({ prettyMessage: 'build pipeline not found' })
     }
 
-    return json.value[0].id
+    return json.value[0]
+  }
+
+  async getLatestCompletedReleaseInfo(
+    organization,
+    project,
+    definitionId,
+    definitionEnvironmentId,
+    headers,
+    errorMessages
+  ) {
+    // Microsoft documentation: https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-5.0
+    const url = `https://vsrm.dev.azure.com/${organization}/${project}/_apis/release/deployments`
+    const options = {
+      qs: {
+        definitionId,
+        $top: 1,
+        definitionEnvironmentId,
+        'api-version': '5.0',
+      },
+      headers,
+    }
+
+    //if (branch) {
+    //  options.qs.sourceBranch = `refs/heads/${branch}`
+    //}
+
+    const json = await this.fetch({
+      url,
+      options,
+      schema: latestReleaseSchema,
+      errorMessages,
+    })
+
+    if (json.count !== 1) {
+      throw new NotFound({ prettyMessage: 'release pipeline not found' })
+    }
+
+    return json.value[0]
   }
 }

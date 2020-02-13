@@ -1,55 +1,70 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { isSemver } = require('../test-validators')
-const { ServiceTester } = require('../tester')
+const Joi = require('joi')
+const { isFormattedDate } = require('../test-validators')
 
-const t = (module.exports = new ServiceTester({
-  id: 'GithubRelease',
-  title: 'Github Release',
-  pathPrefix: '/github',
-}))
+const t = (module.exports = require('../tester').createServiceTester())
 
 t.create('Release')
-  .get('/v/release/expressjs/express.json')
-  .expectBadge({ label: 'release', message: isSemver, color: 'blue' })
-
-t.create('Prerelease')
-  .get('/v/release/expressjs/express.json?include_prereleases')
-  .expectBadge({
-    label: 'release',
-    message: isSemver,
-    color: Joi.string()
-      .allow('blue', 'orange')
-      .required(),
-  })
-
-t.create('Release (No releases)')
-  .get('/v/release/badges/daily-tests.json')
-  .expectBadge({ label: 'release', message: 'no releases or repo not found' })
+  .get('/release/photonstorm/phaser.json')
+  .expectJSONTypes(Joi.object().keys({ name: 'release', value: Joi.string() }))
 
 t.create('Release (repo not found)')
-  .get('/v/release/badges/helmets.json')
-  .expectBadge({ label: 'release', message: 'no releases or repo not found' })
+  .get('/release/badges/helmets.json')
+  .expectJSON({ name: 'release', value: 'repo not found' })
 
-//redirects
-t.create('Release (legacy route: release)')
-  .get('/release/photonstorm/phaser.svg', { followRedirect: false })
-  .expectStatus(301)
-  .expectHeader('Location', '/github/v/release/photonstorm/phaser.svg')
+t.create('(pre-)Release')
+  .get('/release-pre/photonstorm/phaser.json')
+  .expectJSONTypes(Joi.object().keys({ name: 'release', value: Joi.string() }))
 
-t.create('(pre-)Release (legacy route: release/all)')
-  .get('/release/photonstorm/phaser/all.svg', { followRedirect: false })
-  .expectStatus(301)
-  .expectHeader(
-    'Location',
-    '/github/v/release/photonstorm/phaser.svg?include_prereleases'
+t.create('(pre-)Release (for legacy compatibility)')
+  .get('/release/photonstorm/phaser/all.json')
+  .expectJSONTypes(Joi.object().keys({ name: 'release', value: Joi.string() }))
+
+t.create('Release Date. e.g release date|today')
+  .get('/release-date/microsoft/vscode.json')
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'release date',
+      value: isFormattedDate,
+    })
   )
 
-t.create('(pre-)Release (legacy route: release-pre)')
-  .get('/release-pre/photonstorm/phaser.svg', { followRedirect: false })
-  .expectStatus(301)
-  .expectHeader(
-    'Location',
-    '/github/v/release/photonstorm/phaser.svg?include_prereleases'
+t.create('Release Date - Custom Label. e.g myRelease|today')
+  .get('/release-date/microsoft/vscode.json?label=myRelease')
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'myRelease',
+      value: isFormattedDate,
+    })
   )
+
+t.create(
+  'Release Date - Should return `no releases or repo not found` for invalid repo'
+)
+  .get('/release-date/not-valid-name/not-valid-repo.json')
+  .expectJSON({ name: 'release date', value: 'no releases or repo not found' })
+
+t.create('(Pre-)Release Date. e.g release date|today')
+  .get('/release-date-pre/microsoft/vscode.json')
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'release date',
+      value: isFormattedDate,
+    })
+  )
+
+t.create('(Pre-)Release Date - Custom Label. e.g myRelease|today')
+  .get('/release-date-pre/microsoft/vscode.json?label=myRelease')
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'myRelease',
+      value: isFormattedDate,
+    })
+  )
+
+t.create(
+  '(Pre-)Release Date - Should return `no releases or repo not found` for invalid repo'
+)
+  .get('/release-date-pre/not-valid-name/not-valid-repo.json')
+  .expectJSON({ name: 'release date', value: 'no releases or repo not found' })

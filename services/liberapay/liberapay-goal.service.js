@@ -1,8 +1,8 @@
 'use strict'
 
-const { colorScale } = require('../color-formatters')
-const { LiberapayBase } = require('./liberapay-base')
 const { InvalidResponse } = require('..')
+const { LiberapayBase } = require('./liberapay-base')
+const { colorScale } = require('../../lib/color-formatters')
 
 module.exports = class LiberapayGoal extends LiberapayBase {
   static get route() {

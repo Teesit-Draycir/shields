@@ -1,9 +1,9 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { nonNegativeInteger } = require('../validators')
-const { isBuildStatus } = require('../build-status')
+const Joi = require('joi')
 const { BaseJsonService } = require('..')
+const { nonNegativeInteger } = require('../validators')
+const { isBuildStatus } = require('../../lib/build-status')
 
 const schema = Joi.object({
   build: Joi.object({

@@ -1,8 +1,14 @@
 'use strict'
 
+// eslint-disable-next-line node/no-deprecated-api
+const domain = require('domain')
 const request = require('request')
 const queryString = require('query-string')
+const LruCache = require('../../gh-badges/lib/lru-cache')
 const makeBadge = require('../../gh-badges/lib/make-badge')
+const { makeBadgeData: getBadgeData } = require('../../lib/badge-data')
+const analytics = require('../server/analytics')
+const log = require('../server/log')
 const { setCacheHeaders } = require('./cache-headers')
 const {
   Inaccessible,
@@ -10,8 +16,6 @@ const {
   ShieldsRuntimeError,
 } = require('./errors')
 const { makeSend } = require('./legacy-result-sender')
-const LruCache = require('./lru-cache')
-const coalesceBadge = require('./coalesce-badge')
 
 // We avoid calling the vendor's server for computation of the information in a
 // number of badges.
@@ -29,8 +33,14 @@ const freqRatioMax = 1 - minAccuracy
 // Request cache size of 5MB (~5000 bytes/image).
 const requestCache = new LruCache(1000)
 
-// These query parameters are available to any badge. They are handled by
-// `coalesceBadge`.
+// Deep error handling for vendor hooks.
+const vendorDomain = domain.create()
+vendorDomain.on('error', err => {
+  log.error('Vendor hook error:', err.stack)
+})
+
+// These query parameters are available to any badge. For the most part they
+// are used by makeBadgeData (see `lib/badge-data.js`) and related functions.
 const globalQueryParams = new Set([
   'label',
   'style',
@@ -42,8 +52,6 @@ const globalQueryParams = new Set([
   'link',
   'colorA',
   'colorB',
-  'color',
-  'labelColor',
 ])
 
 function flattenQueryParams(queryParams) {
@@ -52,25 +60,6 @@ function flattenQueryParams(queryParams) {
     union.add(name)
   })
   return Array.from(union).sort()
-}
-
-function promisify(cachingRequest) {
-  return (uri, options) =>
-    new Promise((resolve, reject) => {
-      cachingRequest(uri, options, (err, res, buffer) => {
-        if (err) {
-          if (err instanceof ShieldsRuntimeError) {
-            reject(err)
-          } else {
-            // Wrap the error in an Inaccessible so it can be identified
-            // by the BaseService handler.
-            reject(new Inaccessible({ underlyingError: err }))
-          }
-        } else {
-          resolve({ res, buffer })
-        }
-      })
-    })
 }
 
 // handlerOptions can contain:
@@ -112,8 +101,8 @@ function handleRequest(cacheHeaderConfig, handlerOptions) {
     // by-badge basis). Then in turn that can be overridden by
     // `serviceOverrideCacheLengthSeconds` (which we expect to be used only in
     // the dynamic badge) but only if `serviceOverrideCacheLengthSeconds` is
-    // longer than `serviceDefaultCacheLengthSeconds` and then the `cacheSeconds`
-    // query param can also override both of those but again only if `cacheSeconds`
+    // longer than `serviceDefaultCacheLengthSeconds` and then the `maxAge`
+    // query param can also override both of those but again only if `maxAge`
     // is longer.
     //
     // When the legacy services have been rewritten, all the code in here
@@ -129,6 +118,8 @@ function handleRequest(cacheHeaderConfig, handlerOptions) {
         res,
       })
     }
+
+    analytics.noteRequest(queryParams, match)
 
     const filteredQueryParams = {}
     allowedKeys.forEach(key => {
@@ -179,13 +170,15 @@ function handleRequest(cacheHeaderConfig, handlerOptions) {
         return
       }
       ask.res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
-      const badgeData = coalesceBadge(
-        filteredQueryParams,
-        { label: 'vendor', message: 'unresponsive' },
-        {}
-      )
+      const badgeData = getBadgeData('vendor', filteredQueryParams)
+      badgeData.text[1] = 'unresponsive'
+      let extension
+      try {
+        extension = match[0].split('.').pop()
+      } catch (e) {
+        extension = 'svg'
+      }
       const svg = makeBadge(badgeData)
-      const extension = (match.slice(-1)[0] || '.svg').replace(/^\./, '')
       setCacheHeadersOnResponse(ask.res)
       makeSend(extension, ask.res, end)(svg)
     }, 25000)
@@ -236,51 +229,70 @@ function handleRequest(cacheHeaderConfig, handlerOptions) {
       })
     }
 
-    // Wrapper around `cachingRequest` that returns a promise rather than needing
-    // to pass a callback.
-    cachingRequest.asPromise = promisify(cachingRequest)
-
-    const result = handlerOptions.handler(
-      filteredQueryParams,
-      match,
-      // eslint-disable-next-line mocha/prefer-arrow-callback
-      function sendBadge(format, badgeData) {
-        if (serverUnresponsive) {
-          return
-        }
-        clearTimeout(serverResponsive)
-        // Check for a change in the data.
-        let dataHasChanged = false
-        if (
-          cached !== undefined &&
-          cached.data.badgeData.text[1] !== badgeData.text[1]
-        ) {
-          dataHasChanged = true
-        }
-        // Add format to badge data.
-        badgeData.format = format
-        // Update information in the cache.
-        const updatedCache = {
-          reqs: cached ? cached.reqs + 1 : 1,
-          dataChange: cached ? cached.dataChange + (dataHasChanged ? 1 : 0) : 1,
-          time: +reqTime,
-          interval: cacheInterval,
-          data: { format, badgeData },
-        }
-        requestCache.set(cacheIndex, updatedCache)
-        if (!cachedVersionSent) {
-          const svg = makeBadge(badgeData)
-          setCacheHeadersOnResponse(ask.res, badgeData.cacheLengthSeconds)
-          makeSend(format, ask.res, end)(svg)
-        }
-      },
-      cachingRequest
-    )
-    if (result && result.catch) {
-      result.catch(err => {
-        throw err
+    // Wrapper around `cachingRequest` that returns a promise rather than
+    // needing to pass a callback.
+    cachingRequest.asPromise = (uri, options) =>
+      new Promise((resolve, reject) => {
+        cachingRequest(uri, options, (err, res, buffer) => {
+          if (err) {
+            if (err instanceof ShieldsRuntimeError) {
+              reject(err)
+            } else {
+              // Wrap the error in an Inaccessible so it can be identified
+              // by the BaseService handler.
+              reject(new Inaccessible({ underlyingError: err }))
+            }
+          } else {
+            resolve({ res, buffer })
+          }
+        })
       })
-    }
+
+    vendorDomain.run(() => {
+      const result = handlerOptions.handler(
+        filteredQueryParams,
+        match,
+        // eslint-disable-next-line mocha/prefer-arrow-callback
+        function sendBadge(format, badgeData) {
+          if (serverUnresponsive) {
+            return
+          }
+          clearTimeout(serverResponsive)
+          // Check for a change in the data.
+          let dataHasChanged = false
+          if (
+            cached !== undefined &&
+            cached.data.badgeData.text[1] !== badgeData.text[1]
+          ) {
+            dataHasChanged = true
+          }
+          // Add format to badge data.
+          badgeData.format = format
+          // Update information in the cache.
+          const updatedCache = {
+            reqs: cached ? cached.reqs + 1 : 1,
+            dataChange: cached
+              ? cached.dataChange + (dataHasChanged ? 1 : 0)
+              : 1,
+            time: +reqTime,
+            interval: cacheInterval,
+            data: { format, badgeData },
+          }
+          requestCache.set(cacheIndex, updatedCache)
+          if (!cachedVersionSent) {
+            const svg = makeBadge(badgeData)
+            setCacheHeadersOnResponse(ask.res, badgeData.cacheLengthSeconds)
+            makeSend(format, ask.res, end)(svg)
+          }
+        },
+        cachingRequest
+      )
+      if (result && result.catch) {
+        result.catch(err => {
+          throw err
+        })
+      }
+    })
   }
 }
 
@@ -290,7 +302,6 @@ function clearRequestCache() {
 
 module.exports = {
   handleRequest,
-  promisify,
   clearRequestCache,
   // Expose for testing.
   _requestCache: requestCache,

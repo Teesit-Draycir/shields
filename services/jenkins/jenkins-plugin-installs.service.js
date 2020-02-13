@@ -1,10 +1,13 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { downloadCount: downloadCountColor } = require('../color-formatters')
-const { metric } = require('../text-formatters')
-const { nonNegativeInteger } = require('../validators')
+const Joi = require('joi')
+
+const {
+  downloadCount: downloadCountColor,
+} = require('../../lib/color-formatters')
+const { metric } = require('../../lib/text-formatters')
 const { BaseJsonService, NotFound } = require('..')
+const { nonNegativeInteger } = require('../validators')
 
 const schemaInstallations = Joi.object()
   .keys({
@@ -24,7 +27,27 @@ const schemaInstallationsPerVersion = Joi.object()
   })
   .required()
 
-module.exports = class JenkinsPluginInstalls extends BaseJsonService {
+class JenkinsPluginInstalls extends BaseJsonService {
+  async fetch({ plugin, version }) {
+    const url = `https://stats.jenkins.io/plugin-installation-trend/${plugin}.stats.json`
+    const schema = this.constructor._getSchema(version)
+    return this._requestJson({
+      url,
+      schema,
+      errorMessages: {
+        404: 'plugin not found',
+      },
+    })
+  }
+
+  static render({ label, installs }) {
+    return {
+      label,
+      message: metric(installs),
+      color: downloadCountColor(installs),
+    }
+  }
+
   static _getSchema(version) {
     if (version) {
       return schemaInstallationsPerVersion
@@ -39,6 +62,32 @@ module.exports = class JenkinsPluginInstalls extends BaseJsonService {
     } else {
       return 'installs'
     }
+  }
+
+  async handle({ plugin, version }) {
+    const label = this.constructor._getLabel(version)
+    const json = await this.fetch({ plugin, version })
+
+    let installs
+    if (version) {
+      installs = json.installationsPerVersion[version]
+      if (!installs) {
+        throw new NotFound({
+          prettyMessage: 'version not found',
+        })
+      }
+    } else {
+      const latestDate = Object.keys(json.installations)
+        .sort()
+        .slice(-1)[0]
+      installs = json.installations[latestDate]
+    }
+
+    return this.constructor.render({ label, installs })
+  }
+
+  static get defaultBadgeData() {
+    return { label: 'installs' }
   }
 
   static get category() {
@@ -79,50 +128,6 @@ module.exports = class JenkinsPluginInstalls extends BaseJsonService {
       },
     ]
   }
-
-  static get defaultBadgeData() {
-    return { label: 'installs' }
-  }
-
-  static render({ label, installs }) {
-    return {
-      label,
-      message: metric(installs),
-      color: downloadCountColor(installs),
-    }
-  }
-
-  async fetch({ plugin, version }) {
-    const url = `https://stats.jenkins.io/plugin-installation-trend/${plugin}.stats.json`
-    const schema = this.constructor._getSchema(version)
-    return this._requestJson({
-      url,
-      schema,
-      errorMessages: {
-        404: 'plugin not found',
-      },
-    })
-  }
-
-  async handle({ plugin, version }) {
-    const label = this.constructor._getLabel(version)
-    const json = await this.fetch({ plugin, version })
-
-    let installs
-    if (version) {
-      installs = json.installationsPerVersion[version]
-      if (!installs) {
-        throw new NotFound({
-          prettyMessage: 'version not found',
-        })
-      }
-    } else {
-      const latestDate = Object.keys(json.installations)
-        .sort()
-        .slice(-1)[0]
-      installs = json.installations[latestDate]
-    }
-
-    return this.constructor.render({ label, installs })
-  }
 }
+
+module.exports = JenkinsPluginInstalls

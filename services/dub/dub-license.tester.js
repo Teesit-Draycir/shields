@@ -4,8 +4,8 @@ const t = (module.exports = require('../tester').createServiceTester())
 
 t.create('license (valid)')
   .get('/vibe-d.json')
-  .expectBadge({ label: 'license', message: 'MIT' })
+  .expectJSON({ name: 'license', value: 'MIT' })
 
 t.create('license (not found)')
   .get('/not-a-package.json')
-  .expectBadge({ label: 'license', message: 'not found' })
+  .expectJSON({ name: 'license', value: 'not found' })

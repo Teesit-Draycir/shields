@@ -1,15 +1,14 @@
 'use strict'
-/**
- * @module
- */
 
+const fs = require('fs')
+const bytes = require('bytes')
 const path = require('path')
 const url = require('url')
-const bytes = require('bytes')
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const Camp = require('camp')
 const makeBadge = require('../../gh-badges/lib/make-badge')
 const GithubConstellation = require('../../services/github/github-constellation')
+const { makeBadgeData } = require('../../lib/badge-data')
 const suggest = require('../../services/suggest')
 const { loadServiceClasses } = require('../base-service/loader')
 const { makeSend } = require('../base-service/legacy-result-sender')
@@ -17,8 +16,9 @@ const {
   handleRequest,
   clearRequestCache,
 } = require('../base-service/legacy-request-handler')
-const { clearRegularUpdateCache } = require('../legacy/regular-update')
-const { rasterRedirectUrl } = require('../badge-urls/make-badge-url')
+const { clearRegularUpdateCache } = require('../../lib/regular-update')
+const { staticBadgeUrl } = require('../badge-urls/make-badge-url')
+const analytics = require('./analytics')
 const log = require('./log')
 const sysMonitor = require('./monitor')
 const PrometheusMetrics = require('./prometheus-metrics')
@@ -26,9 +26,14 @@ const PrometheusMetrics = require('./prometheus-metrics')
 const optionalUrl = Joi.string().uri({ scheme: ['http', 'https'] })
 const requiredUrl = optionalUrl.required()
 
+const notFound = fs.readFileSync(
+  path.resolve(__dirname, 'error-pages', '404.html'),
+  'utf-8'
+)
+
 const publicConfigSchema = Joi.object({
   bind: {
-    port: Joi.number().port(),
+    port: Joi.string().port(),
     address: Joi.alternatives().try(
       Joi.string()
         .ip()
@@ -41,6 +46,9 @@ const publicConfigSchema = Joi.object({
   metrics: {
     prometheus: {
       enabled: Joi.boolean().required(),
+      allowedIps: Joi.array()
+        .items(Joi.string().ip())
+        .required(),
     },
   },
   ssl: {
@@ -49,7 +57,6 @@ const publicConfigSchema = Joi.object({
     cert: Joi.string(),
   },
   redirectUrl: optionalUrl,
-  rasterUrl: optionalUrl,
   cors: {
     allowedOrigin: Joi.array()
       .items(optionalUrl)
@@ -57,6 +64,7 @@ const publicConfigSchema = Joi.object({
   },
   persistence: {
     dir: Joi.string().required(),
+    redisUrl: optionalUrl,
   },
   services: {
     github: {
@@ -98,7 +106,6 @@ const privateConfigSchema = Joi.object({
   nexus_user: Joi.string(),
   nexus_pass: Joi.string(),
   npm_token: Joi.string(),
-  redis_url: Joi.string().uri({ scheme: ['redis', 'rediss'] }),
   sentry_dsn: Joi.string(),
   shields_ips: Joi.array().items(Joi.string().ip()),
   shields_secret: Joi.string(),
@@ -108,22 +115,7 @@ const privateConfigSchema = Joi.object({
   wheelmap_token: Joi.string(),
 }).required()
 
-/**
- * The Server is based on the web framework Scoutcamp. It creates
- * an http server, sets up helpers for token persistence and monitoring.
- * Then it loads all the services, injecting dependencies as it
- * asks each one to register its route with Scoutcamp.
- */
-class Server {
-  /**
-   * Badge Server Constructor
-   *
-   * @param {object} config Configuration object read from config yaml files
-   *    by https://www.npmjs.com/package/config and validated against
-   *    publicConfigSchema and privateConfigSchema
-   * @see https://github.com/badges/shields/blob/master/doc/production-hosting.md#configuration
-   * @see https://github.com/badges/shields/blob/master/doc/server-secrets.md
-   */
+module.exports = class Server {
   constructor(config) {
     const publicConfig = Joi.attempt(config.public, publicConfigSchema)
     let privateConfig
@@ -145,11 +137,8 @@ class Server {
     this.githubConstellation = new GithubConstellation({
       persistence: publicConfig.persistence,
       service: publicConfig.services.github,
-      private: privateConfig,
     })
-    if (publicConfig.metrics.prometheus.enabled) {
-      this.metrics = new PrometheusMetrics()
-    }
+    this.metrics = new PrometheusMetrics(publicConfig.metrics.prometheus)
   }
 
   get port() {
@@ -174,120 +163,76 @@ class Server {
     })
   }
 
-  /**
-   * Set up Scoutcamp routes for 404/not found responses
-   */
   registerErrorHandlers() {
-    const { camp, config } = this
-    const {
-      public: { rasterUrl },
-    } = config
+    const { camp } = this
 
-    camp.route(/\.(gif|jpg)$/, (query, match, end, request) => {
-      const [, format] = match
-      makeSend('svg', request.res, end)(
-        makeBadge({
-          text: ['410', `${format} no longer available`],
-          color: 'lightgray',
-          format: 'svg',
-        })
-      )
+    camp.notfound(/\.(svg|png|gif|jpg|json)/, (query, match, end, request) => {
+      const format = match[1]
+      const badgeData = makeBadgeData('404', query)
+      badgeData.text[1] = 'badge not found'
+      badgeData.colorB = 'red'
+      // Add format to badge data.
+      badgeData.format = format
+      const svg = makeBadge(badgeData)
+      makeSend(format, request.res, end)(svg)
     })
 
-    if (!rasterUrl) {
-      camp.route(/\.png$/, (query, match, end, request) => {
-        makeSend('svg', request.res, end)(
-          makeBadge({
-            text: ['404', 'raster badges not available'],
-            color: 'lightgray',
-            format: 'svg',
-          })
-        )
-      })
-    }
-
-    camp.notfound(/(\.svg|\.json|)$/, (query, match, end, request) => {
-      const [, extension] = match
-      const format = (extension || '.svg').replace(/^\./, '')
-
-      makeSend(format, request.res, end)(
-        makeBadge({
-          text: ['404', 'badge not found'],
-          color: 'red',
-          format,
-        })
-      )
+    camp.notfound(/.*/, (query, match, end, request) => {
+      end(notFound)
     })
   }
 
-  /**
-   * Set up a couple of redirects:
-   * One for the raster badges.
-   * Another to redirect the base URL /
-   * (we use this to redirect {@link https://img.shields.io/}
-   * to {@link https://shields.io/} )
-   */
-  registerRedirects() {
-    const { config, camp } = this
-    const {
-      public: { rasterUrl, redirectUrl },
-    } = config
-
-    if (rasterUrl) {
-      // Redirect to the raster server for raster versions of modern badges.
-      camp.route(/\.png$/, (queryParams, match, end, ask) => {
-        ask.res.statusCode = 301
-        ask.res.setHeader(
-          'Location',
-          rasterRedirectUrl({ rasterUrl }, ask.req.url)
-        )
-
-        const cacheDuration = (30 * 24 * 3600) | 0 // 30 days.
-        ask.res.setHeader('Cache-Control', `max-age=${cacheDuration}`)
-
-        ask.res.end()
-      })
-    }
-
-    if (redirectUrl) {
-      camp.route(/^\/$/, (data, match, end, ask) => {
-        ask.res.statusCode = 302
-        ask.res.setHeader('Location', redirectUrl)
-        ask.res.end()
-      })
-    }
-  }
-
-  /**
-   * Iterate all the service classes defined in /services,
-   * load each service and register a Scoutcamp route for each service.
-   */
   registerServices() {
     const { config, camp } = this
     const { apiProvider: githubApiProvider } = this.githubConstellation
-    const { requestCounter } = this.metrics || {}
 
     loadServiceClasses().forEach(serviceClass =>
       serviceClass.register(
-        { camp, handleRequest, githubApiProvider, requestCounter },
+        { camp, handleRequest, githubApiProvider },
         {
           handleInternalErrors: config.public.handleInternalErrors,
           cacheHeaders: config.public.cacheHeaders,
           profiling: config.public.profiling,
           fetchLimitBytes: bytes(config.public.fetchLimit),
-          rasterUrl: config.public.rasterUrl,
-          private: config.private,
         }
       )
     )
   }
 
-  /**
-   * Start the HTTP server:
-   * Bootstrap Scoutcamp,
-   * Register handlers,
-   * Start listening for requests on this.baseUrl()
-   */
+  registerRedirects() {
+    const { config, camp } = this
+
+    // Any badge, old version. This route must be registered last.
+    camp.route(/^\/([^/]+)\/(.+).png$/, (queryParams, match, end, ask) => {
+      const [, label, message] = match
+      const { color } = queryParams
+
+      const redirectUrl = staticBadgeUrl({
+        label,
+        message,
+        color,
+        format: 'png',
+      })
+
+      ask.res.statusCode = 301
+      ask.res.setHeader('Location', redirectUrl)
+
+      // The redirect is permanent.
+      const cacheDuration = (365 * 24 * 3600) | 0 // 1 year
+      ask.res.setHeader('Cache-Control', `max-age=${cacheDuration}`)
+
+      ask.res.end()
+    })
+
+    if (config.public.redirectUrl) {
+      camp.route(/^\/$/, (data, match, end, ask) => {
+        ask.res.statusCode = 302
+        ask.res.setHeader('Location', config.public.redirectUrl)
+        ask.res.end()
+      })
+    }
+  }
+
   async start() {
     const {
       bind: { port, address: hostname },
@@ -307,20 +252,22 @@ class Server {
       key,
     }))
 
+    analytics.load()
+    analytics.scheduleAutosaving()
+    analytics.setRoutes(camp)
+
     this.cleanupMonitor = sysMonitor.setRoutes({ rateLimit }, camp)
 
     const { githubConstellation, metrics } = this
     githubConstellation.initialize(camp)
-    if (metrics) {
-      metrics.initialize(camp)
-    }
+    metrics.initialize(camp)
 
     const { apiProvider: githubApiProvider } = this.githubConstellation
     suggest.setRoutes(allowedOrigin, githubApiProvider, camp)
 
     this.registerErrorHandlers()
-    this.registerRedirects()
     this.registerServices()
+    this.registerRedirects()
 
     await new Promise(resolve => camp.on('listening', () => resolve()))
   }
@@ -336,9 +283,6 @@ class Server {
     this.constructor.resetGlobalState()
   }
 
-  /**
-   * Stop the HTTP server and clean up helpers
-   */
   async stop() {
     if (this.camp) {
       await new Promise(resolve => this.camp.close(resolve))
@@ -355,10 +299,6 @@ class Server {
       this.githubConstellation = undefined
     }
 
-    if (this.metrics) {
-      this.metrics.stop()
-    }
+    analytics.cancelAutosaving()
   }
 }
-
-module.exports = Server

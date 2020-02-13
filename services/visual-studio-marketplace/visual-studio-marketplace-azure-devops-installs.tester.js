@@ -1,5 +1,6 @@
 'use strict'
 
+const Joi = require('joi')
 const t = (module.exports = require('../tester').createServiceTester())
 const { isMetric } = require('../test-validators')
 
@@ -29,75 +30,83 @@ const mockResponse = {
   ],
 }
 
-t.create('Azure DevOps Extension total installs')
+t.create('live: Azure DevOps Extension total installs')
   .get('/total/swellaby.mirror-git-repository.json')
-  .expectBadge({
-    label: 'installs',
-    message: isMetric,
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'installs',
+      value: isMetric,
+    })
+  )
 
-t.create('Azure DevOps Extension services installs')
+t.create('live: Azure DevOps Extension services installs')
   .get('/services/swellaby.mirror-git-repository.json')
-  .expectBadge({
-    label: 'installs',
-    message: isMetric,
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'installs',
+      value: isMetric,
+    })
+  )
 
-t.create('invalid extension id')
+t.create('live: invalid extension id')
   .get('/services/badges-shields.json')
-  .expectBadge({
-    label: 'installs',
-    message: 'invalid extension id',
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'installs',
+      value: 'invalid extension id',
+    })
+  )
 
-t.create('non existent extension')
+t.create('live: non existent extension')
   .get('/total/badges.shields-io-fake.json')
-  .expectBadge({
-    label: 'installs',
-    message: 'extension not found',
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'installs',
+      value: 'extension not found',
+    })
+  )
 
 t.create('total installs')
-  .get('/total/swellaby.cobertura-transform.json')
+  .get('/total/swellaby.cobertura-transform.json?style=_shields_test')
   .intercept(nock =>
     nock('https://marketplace.visualstudio.com/_apis/public/gallery/')
       .post(`/extensionquery/`)
       .reply(200, mockResponse)
   )
-  .expectBadge({
-    label: 'installs',
-    message: '28',
+  .expectJSON({
+    name: 'installs',
+    value: '28',
     color: 'yellowgreen',
   })
 
 t.create('services installs')
-  .get('/services/swellaby.cobertura-transform.json')
+  .get('/services/swellaby.cobertura-transform.json?style=_shields_test')
   .intercept(nock =>
     nock('https://marketplace.visualstudio.com/_apis/public/gallery/')
       .post(`/extensionquery/`)
       .reply(200, mockResponse)
   )
-  .expectBadge({
-    label: 'installs',
-    message: '21',
+  .expectJSON({
+    name: 'installs',
+    value: '21',
     color: 'yellowgreen',
   })
 
 t.create('onprem installs')
-  .get('/onprem/swellaby.cobertura-transform.json')
+  .get('/onprem/swellaby.cobertura-transform.json?style=_shields_test')
   .intercept(nock =>
     nock('https://marketplace.visualstudio.com/_apis/public/gallery/')
       .post(`/extensionquery/`)
       .reply(200, mockResponse)
   )
-  .expectBadge({
-    label: 'installs',
-    message: '7',
+  .expectJSON({
+    name: 'installs',
+    value: '7',
     color: 'yellow',
   })
 
 t.create('zero installs')
-  .get('/total/swellaby.cobertura-transform.json')
+  .get('/total/swellaby.cobertura-transform.json?style=_shields_test')
   .intercept(nock =>
     nock('https://marketplace.visualstudio.com/_apis/public/gallery/')
       .post(`/extensionquery/`)
@@ -118,8 +127,8 @@ t.create('zero installs')
         ],
       })
   )
-  .expectBadge({
-    label: 'installs',
-    message: '0',
+  .expectJSON({
+    name: 'installs',
+    value: '0',
     color: 'red',
   })

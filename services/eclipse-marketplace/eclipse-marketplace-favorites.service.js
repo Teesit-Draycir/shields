@@ -1,8 +1,8 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { nonNegativeInteger } = require('../validators')
+const Joi = require('joi')
 const EclipseMarketplaceBase = require('./eclipse-marketplace-base')
+const { nonNegativeInteger } = require('../validators')
 
 const favoritesResponseSchema = Joi.object({
   marketplace: Joi.object({
@@ -17,8 +17,8 @@ module.exports = class EclipseMarketplaceFavorites extends EclipseMarketplaceBas
     return 'other'
   }
 
-  static get route() {
-    return this.buildRoute('eclipse-marketplace/favorites')
+  static get defaultBadgeData() {
+    return { label: 'favorites' }
   }
 
   static get examples() {
@@ -31,8 +31,8 @@ module.exports = class EclipseMarketplaceFavorites extends EclipseMarketplaceBas
     ]
   }
 
-  static get defaultBadgeData() {
-    return { label: 'favorites' }
+  static get route() {
+    return this.buildRoute('eclipse-marketplace/favorites')
   }
 
   static render({ favorited }) {

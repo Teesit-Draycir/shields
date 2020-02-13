@@ -1,10 +1,10 @@
 'use strict'
 
-const { addv: versionText } = require('../text-formatters')
-const { version: versionColor } = require('../color-formatters')
 const BaseCondaService = require('./conda-base')
+const { addv: versionText } = require('../../lib/text-formatters')
+const { version: versionColor } = require('../../lib/color-formatters')
 
-module.exports = class CondaVersion extends BaseCondaService {
+module.exports = class CondaDownloads extends BaseCondaService {
   static get category() {
     return 'version'
   }
@@ -12,7 +12,7 @@ module.exports = class CondaVersion extends BaseCondaService {
   static get route() {
     return {
       base: 'conda',
-      pattern: ':variant(v|vn)/:channel/:pkg',
+      pattern: ':which(v|vn)/:channel/:pkg',
     }
   }
 
@@ -23,7 +23,7 @@ module.exports = class CondaVersion extends BaseCondaService {
         namedParams: { channel: 'conda-forge', package: 'python' },
         pattern: 'v/:channel/:package',
         staticPreview: this.render({
-          variant: 'v',
+          which: 'v',
           channel: 'conda-forge',
           version: '3.7.1',
         }),
@@ -33,7 +33,7 @@ module.exports = class CondaVersion extends BaseCondaService {
         namedParams: { channel: 'conda-forge', package: 'python' },
         pattern: 'vn/:channel/:package',
         staticPreview: this.render({
-          variant: 'vn',
+          which: 'vn',
           channel: 'conda-forge',
           version: '3.7.1',
         }),
@@ -41,18 +41,18 @@ module.exports = class CondaVersion extends BaseCondaService {
     ]
   }
 
-  static render({ variant, channel, version }) {
+  static render({ which, channel, version }) {
     return {
-      label: variant === 'vn' ? channel : `conda|${channel}`,
+      label: which === 'vn' ? channel : `conda|${channel}`,
       message: versionText(version),
       color: versionColor(version),
     }
   }
 
-  async handle({ variant, channel, pkg }) {
+  async handle({ which, channel, pkg }) {
     const json = await this.fetch({ channel, pkg })
     return this.constructor.render({
-      variant,
+      which,
       channel,
       version: json.latest_version,
     })

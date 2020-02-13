@@ -1,8 +1,8 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const countBy = require('lodash.countby')
-const { GithubAuthV3Service } = require('./github-auth-service')
+const { GithubAuthService } = require('./github-auth-service')
 const { fetchIssue } = require('./github-common-fetch')
 const { documentation, errorMessagesFor } = require('./github-helpers')
 
@@ -19,7 +19,7 @@ const schema = Joi.object({
 
 const keywords = ['pullrequest', 'detail']
 
-module.exports = class GithubPullRequestCheckState extends GithubAuthV3Service {
+module.exports = class GithubPullRequestCheckState extends GithubAuthService {
   static get category() {
     return 'build'
   }
@@ -27,7 +27,7 @@ module.exports = class GithubPullRequestCheckState extends GithubAuthV3Service {
   static get route() {
     return {
       base: 'github/status',
-      pattern: ':variant(s|contexts)/pulls/:user/:repo/:number(\\d+)',
+      pattern: ':which(s|contexts)/pulls/:user/:repo/:number(\\d+)',
     }
   }
 
@@ -41,7 +41,7 @@ module.exports = class GithubPullRequestCheckState extends GithubAuthV3Service {
           repo: 'shields',
           number: '1110',
         },
-        staticPreview: this.render({ variant: 's', state: 'pending' }),
+        staticPreview: this.render({ which: 's', state: 'pending' }),
         keywords,
         documentation,
       },
@@ -54,7 +54,7 @@ module.exports = class GithubPullRequestCheckState extends GithubAuthV3Service {
           number: '1110',
         },
         staticPreview: this.render({
-          variant: 'contexts',
+          which: 'contexts',
           state: 'pending',
           stateCounts: { passed: 5, pending: 1 },
         }),
@@ -71,9 +71,9 @@ module.exports = class GithubPullRequestCheckState extends GithubAuthV3Service {
     }
   }
 
-  static render({ variant, state, stateCounts }) {
+  static render({ which, state, stateCounts }) {
     let message
-    if (variant === 'contexts') {
+    if (which === 'contexts') {
       message = Object.entries(stateCounts)
         .map(([state, count]) => `${count} ${state}`)
         .join(', ')
@@ -97,7 +97,7 @@ module.exports = class GithubPullRequestCheckState extends GithubAuthV3Service {
     }
   }
 
-  async handle({ variant, user, repo, number }) {
+  async handle({ which, user, repo, number }) {
     const {
       head: { sha: ref },
     } = await fetchIssue(this, { user, repo, number })
@@ -110,6 +110,6 @@ module.exports = class GithubPullRequestCheckState extends GithubAuthV3Service {
     })
     const { state, stateCounts } = this.constructor.transform(json)
 
-    return this.constructor.render({ variant, state, stateCounts })
+    return this.constructor.render({ which, state, stateCounts })
   }
 }

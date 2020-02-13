@@ -1,8 +1,9 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { starRating } = require('../text-formatters')
-const { floorCount: floorCountColor } = require('../color-formatters')
+const { starRating } = require('../../lib/text-formatters')
+const { floorCount: floorCountColor } = require('../../lib/color-formatters')
+
+const Joi = require('joi')
 const { BaseXmlService } = require('..')
 
 const schema = Joi.object({
@@ -14,17 +15,17 @@ const schema = Joi.object({
 })
 
 class BaseRedminePluginRating extends BaseXmlService {
+  async fetch({ plugin }) {
+    const url = `https://www.redmine.org/plugins/${plugin}.xml`
+    return this._requestXml({ schema, url })
+  }
+
   static get category() {
     return 'rating'
   }
 
   static render({ rating }) {
     throw new Error(`render() function not implemented for ${this.name}`)
-  }
-
-  async fetch({ plugin }) {
-    const url = `https://www.redmine.org/plugins/${plugin}.xml`
-    return this._requestXml({ schema, url })
   }
 
   async handle({ plugin }) {
@@ -42,18 +43,19 @@ class RedminePluginRating extends BaseRedminePluginRating {
     }
   }
 
+  static get defaultBadgeData() {
+    return { label: 'redmine' }
+  }
+
   static get examples() {
     return [
       {
         title: 'Plugin on redmine.org',
         namedParams: { plugin: 'redmine_xlsx_format_issue_exporter' },
         staticPreview: this.render({ rating: 5 }),
+        keywords: ['redmine', 'plugin'],
       },
     ]
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'redmine' }
   }
 
   static render({ rating }) {
@@ -79,6 +81,7 @@ class RedminePluginStars extends BaseRedminePluginRating {
         title: 'Plugin on redmine.org',
         namedParams: { plugin: 'redmine_xlsx_format_issue_exporter' },
         staticPreview: this.render({ rating: 5 }),
+        keywords: ['redmine', 'plugin'],
       },
     ]
   }

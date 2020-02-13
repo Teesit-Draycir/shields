@@ -1,7 +1,6 @@
 'use strict'
 
 const path = require('path')
-const { AuthHelper } = require('../../core/base-service/auth-helper')
 const RedisTokenPersistence = require('../../core/token-pooling/redis-token-persistence')
 const FsTokenPersistence = require('../../core/token-pooling/fs-token-persistence')
 const serverSecrets = require('../../lib/server-secrets')
@@ -13,25 +12,13 @@ const { setRoutes: setAcceptorRoutes } = require('./auth/acceptor')
 // Convenience class with all the stuff related to the Github API and its
 // authorization tokens, to simplify server initialization.
 class GithubConstellation {
-  static _createOauthHelper(privateConfig) {
-    return new AuthHelper(
-      {
-        userKey: 'gh_client_id',
-        passKey: 'gh_client_secret',
-        isRequired: true,
-      },
-      privateConfig
-    )
-  }
-
   constructor(config) {
     this._debugEnabled = config.service.debug.enabled
     this._debugIntervalSeconds = config.service.debug.intervalSeconds
 
-    const { redis_url: redisUrl } = config.private
-    const { dir: persistenceDir } = config.persistence
-    if (redisUrl) {
-      log('RedisTokenPersistence configured with redisUrl')
+    const { redisUrl, dir: persistenceDir } = config.persistence
+    if (config.persistence.redisUrl) {
+      log(`RedisTokenPersistence configured with ${redisUrl}`)
       this.persistence = new RedisTokenPersistence({
         url: redisUrl,
         key: 'githubUserTokens',
@@ -53,8 +40,6 @@ class GithubConstellation {
       withPooling: !globalToken,
       onTokenInvalidated: tokenString => this.onTokenInvalidated(tokenString),
     })
-
-    this.oauthHelper = this.constructor._createOauthHelper(config.private)
   }
 
   scheduleDebugLogging() {
@@ -85,10 +70,9 @@ class GithubConstellation {
 
     setAdminRoutes(this.apiProvider, server)
 
-    if (this.oauthHelper.isConfigured) {
+    if (serverSecrets.gh_client_id && serverSecrets.gh_client_secret) {
       setAcceptorRoutes({
         server,
-        authHelper: this.oauthHelper,
         onTokenAccepted: tokenString => this.onTokenAdded(tokenString),
       })
     }

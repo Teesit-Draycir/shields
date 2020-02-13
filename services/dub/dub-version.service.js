@@ -1,8 +1,8 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { renderVersionBadge } = require('../version')
+const Joi = require('joi')
 const { BaseJsonService } = require('..')
+const { renderVersionBadge } = require('../../lib/version')
 
 const schema = Joi.string().required()
 
@@ -18,6 +18,10 @@ module.exports = class DubVersion extends BaseJsonService {
     }
   }
 
+  static get defaultBadgeData() {
+    return { label: 'dub' }
+  }
+
   static get examples() {
     return [
       {
@@ -26,10 +30,6 @@ module.exports = class DubVersion extends BaseJsonService {
         staticPreview: renderVersionBadge({ version: 'v0.8.4' }),
       },
     ]
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'dub' }
   }
 
   async fetch({ packageName }) {

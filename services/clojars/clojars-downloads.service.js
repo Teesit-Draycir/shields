@@ -1,10 +1,42 @@
 'use strict'
 
-const { metric } = require('../text-formatters')
-const { downloadCount: downloadsColor } = require('../color-formatters')
-const { BaseClojarsService } = require('./clojars-base')
+const Joi = require('joi')
+const { metric } = require('../../lib/text-formatters')
+const { downloadCount: downloadsColor } = require('../../lib/color-formatters')
+const { nonNegativeInteger } = require('../validators')
+const { BaseJsonService } = require('..')
 
-module.exports = class ClojarsDownloads extends BaseClojarsService {
+const clojarsSchema = Joi.object({
+  downloads: nonNegativeInteger,
+}).required()
+
+module.exports = class Clojars extends BaseJsonService {
+  async fetch({ clojar }) {
+    const url = `https://clojars.org/api/artifacts/${clojar}`
+    return this._requestJson({
+      url,
+      schema: clojarsSchema,
+    })
+  }
+
+  static render({ downloads }) {
+    return {
+      label: 'downloads',
+      message: metric(downloads),
+      color: downloadsColor(downloads),
+    }
+  }
+
+  async handle({ clojar }) {
+    const json = await this.fetch({ clojar })
+    return this.constructor.render({ downloads: json.downloads })
+  }
+
+  // Metadata
+  static get defaultBadgeData() {
+    return { label: 'downloads' }
+  }
+
   static get category() {
     return 'downloads'
   }
@@ -23,22 +55,5 @@ module.exports = class ClojarsDownloads extends BaseClojarsService {
         staticPreview: this.render({ downloads: 117 }),
       },
     ]
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'downloads' }
-  }
-
-  static render({ downloads }) {
-    return {
-      label: 'downloads',
-      message: metric(downloads),
-      color: downloadsColor(downloads),
-    }
-  }
-
-  async handle({ clojar }) {
-    const json = await this.fetch({ clojar })
-    return this.constructor.render({ downloads: json.downloads })
   }
 }

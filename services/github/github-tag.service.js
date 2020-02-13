@@ -1,180 +1,117 @@
 'use strict'
 
-const gql = require('graphql-tag')
-const Joi = require('@hapi/joi')
-const { addv } = require('../text-formatters')
-const { version: versionColor } = require('../color-formatters')
-const { latest } = require('../version')
-const { GithubAuthV4Service } = require('./github-auth-service')
-const { documentation, transformErrors } = require('./github-helpers')
-const { NotFound, redirector } = require('..')
+const LegacyService = require('../legacy-service')
+const { makeBadgeData: getBadgeData } = require('../../lib/badge-data')
+const { makeLogo: getLogo } = require('../../lib/logos')
+const { addv: versionText } = require('../../lib/text-formatters')
+const { version: versionColor } = require('../../lib/color-formatters')
+const { latest: latestVersion } = require('../../lib/version')
+const {
+  documentation,
+  checkErrorResponse: githubCheckErrorResponse,
+} = require('./github-helpers')
 
-const queryParamSchema = Joi.object({
-  include_prereleases: Joi.equal(''),
-  sort: Joi.string()
-    .valid('date', 'semver')
-    .default('date'),
-}).required()
-
-const schema = Joi.object({
-  data: Joi.object({
-    repository: Joi.object({
-      refs: Joi.object({
-        edges: Joi.array()
-          .items({
-            node: Joi.object({
-              name: Joi.string().required(),
-            }).required(),
-          })
-          .required(),
-      }).required(),
-    }).required(),
-  }).required(),
-}).required()
-
-class GithubTag extends GithubAuthV4Service {
+// This legacy service should be rewritten to use e.g. BaseJsonService.
+//
+// Tips for rewriting:
+// https://github.com/badges/shields/blob/master/doc/rewriting-services.md
+//
+// Do not base new services on this code.
+module.exports = class GithubTag extends LegacyService {
   static get category() {
     return 'version'
   }
 
   static get route() {
     return {
-      base: 'github/v/tag',
-      pattern: ':user/:repo',
-      queryParamSchema,
+      base: 'github',
+      pattern: ':which(tag|tag-pre|tag-date)/:user/:repo',
     }
   }
 
   static get examples() {
     return [
       {
-        title: 'GitHub tag (latest by date)',
-        namedParams: { user: 'expressjs', repo: 'express' },
-        staticPreview: this.render({
-          version: 'v5.0.0-alpha.7',
-          sort: 'date',
-        }),
-        documentation,
-      },
-      {
         title: 'GitHub tag (latest SemVer)',
-        namedParams: { user: 'expressjs', repo: 'express' },
-        queryParams: { sort: 'semver' },
-        staticPreview: this.render({ version: 'v4.16.4', sort: 'semver' }),
+        pattern: 'tag/:user/:repo',
+        namedParams: {
+          user: 'expressjs',
+          repo: 'express',
+        },
+        staticPreview: {
+          label: 'tag',
+          message: 'v4.16.4',
+          color: 'blue',
+        },
         documentation,
       },
       {
         title: 'GitHub tag (latest SemVer pre-release)',
-        namedParams: { user: 'expressjs', repo: 'express' },
-        queryParams: { sort: 'semver', include_prereleases: null },
-        staticPreview: this.render({
-          version: 'v5.0.0-alpha.7',
-          sort: 'semver',
-        }),
+        pattern: 'tag-pre/:user/:repo',
+        namedParams: {
+          user: 'expressjs',
+          repo: 'express',
+        },
+        staticPreview: {
+          label: 'tag',
+          message: 'v5.0.0-alpha.7',
+          color: 'orange',
+        },
+        documentation,
+      },
+      {
+        title: 'GitHub tag (latest by date)',
+        pattern: 'tag-date/:user/:repo',
+        namedParams: {
+          user: 'expressjs',
+          repo: 'express',
+        },
+        staticPreview: {
+          label: 'tag',
+          message: 'v5.0.0-alpha.7',
+          color: 'blue',
+        },
         documentation,
       },
     ]
   }
 
-  static get defaultBadgeData() {
-    return { label: 'tag' }
-  }
-
-  static render({ version, sort }) {
-    return {
-      message: addv(version),
-      color: sort === 'semver' ? versionColor(version) : 'blue',
-    }
-  }
-
-  async fetch({ user, repo, sort }) {
-    const limit = sort === 'semver' ? 100 : 1
-    return await this._requestGraphql({
-      query: gql`
-        query($user: String!, $repo: String!, $limit: Int!) {
-          repository(owner: $user, name: $repo) {
-            refs(
-              refPrefix: "refs/tags/"
-              first: $limit
-              orderBy: { field: TAG_COMMIT_DATE, direction: DESC }
-            ) {
-              edges {
-                node {
-                  name
-                }
-              }
-            }
-          }
+  static registerLegacyRouteHandler({ camp, cache, githubApiProvider }) {
+    camp.route(
+      /^\/github\/(tag-pre|tag-date|tag)\/([^/]+)\/([^/]+)\.(svg|png|gif|jpg|json)$/,
+      cache((data, match, sendBadge, request) => {
+        const includePre = match[1].includes('pre')
+        const sortOrder = match[1] === 'tag-date' ? 'date' : 'semver'
+        const user = match[2] // eg, expressjs/express
+        const repo = match[3]
+        const format = match[4]
+        const apiUrl = `/repos/${user}/${repo}/tags`
+        const badgeData = getBadgeData('tag', data)
+        if (badgeData.template === 'social') {
+          badgeData.logo = getLogo('github', data)
         }
-      `,
-      variables: { user, repo, limit },
-      schema,
-      transformErrors,
-    })
+        githubApiProvider.request(request, apiUrl, {}, (err, res, buffer) => {
+          if (githubCheckErrorResponse(badgeData, err, res)) {
+            sendBadge(format, badgeData)
+            return
+          }
+          try {
+            const data = JSON.parse(buffer)
+            const versions = data.map(e => e.name)
+            const tag =
+              sortOrder === 'date'
+                ? versions[0]
+                : latestVersion(versions, { pre: includePre })
+            badgeData.text[1] = versionText(tag)
+            badgeData.colorscheme =
+              sortOrder === 'date' ? 'blue' : versionColor(tag)
+            sendBadge(format, badgeData)
+          } catch (e) {
+            badgeData.text[1] = 'none'
+            sendBadge(format, badgeData)
+          }
+        })
+      })
+    )
   }
-
-  static getLatestTag({ tags, sort, includePrereleases }) {
-    if (sort === 'semver') {
-      return latest(tags, { pre: includePrereleases })
-    }
-    return tags[0]
-  }
-
-  async handle({ user, repo }, queryParams) {
-    const sort = queryParams.sort
-    const includePrereleases = queryParams.include_prereleases !== undefined
-
-    const json = await this.fetch({ user, repo, sort })
-    const tags = json.data.repository.refs.edges.map(edge => edge.node.name)
-    if (tags.length === 0)
-      throw new NotFound({ prettyMessage: 'no tags found' })
-    return this.constructor.render({
-      version: this.constructor.getLatestTag({
-        tags,
-        sort,
-        includePrereleases,
-      }),
-      sort,
-    })
-  }
-}
-
-const redirects = {
-  GithubTagRedirect: redirector({
-    category: 'version',
-    route: {
-      base: 'github/tag',
-      pattern: ':user/:repo',
-    },
-    transformPath: ({ user, repo }) => `/github/v/tag/${user}/${repo}`,
-    transformQueryParams: params => ({ sort: 'semver' }),
-    dateAdded: new Date('2019-08-17'),
-  }),
-  GithubTagPreRedirect: redirector({
-    category: 'version',
-    route: {
-      base: 'github/tag-pre',
-      pattern: ':user/:repo',
-    },
-    transformPath: ({ user, repo }) => `/github/v/tag/${user}/${repo}`,
-    transformQueryParams: params => ({
-      sort: 'semver',
-      include_prereleases: null,
-    }),
-    dateAdded: new Date('2019-08-17'),
-  }),
-  GithubTagDateRedirect: redirector({
-    category: 'version',
-    route: {
-      base: 'github/tag-date',
-      pattern: ':user/:repo',
-    },
-    transformPath: ({ user, repo }) => `/github/v/tag/${user}/${repo}`,
-    dateAdded: new Date('2019-08-17'),
-  }),
-}
-
-module.exports = {
-  GithubTag,
-  ...redirects,
 }

@@ -1,7 +1,6 @@
 ---
 name: 💡 Badge Request
 about: Ideas for new badges
-labels: 'service-badge'
 ---
 
 :clipboard: **Description**

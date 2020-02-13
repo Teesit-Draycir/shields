@@ -1,9 +1,8 @@
 'use strict'
 
-const { renderVersionBadge } = require('../version')
-const BaseCocoaPodsService = require('./cocoapods-base')
+const LegacyService = require('../legacy-service')
 
-module.exports = class CocoapodsVersion extends BaseCocoaPodsService {
+module.exports = class CocoapodsVersion extends LegacyService {
   static get category() {
     return 'version'
   }
@@ -19,18 +18,18 @@ module.exports = class CocoapodsVersion extends BaseCocoaPodsService {
     return [
       {
         title: 'Cocoapods',
-        namedParams: { spec: 'AFNetworking' },
-        staticPreview: renderVersionBadge({ version: 'v3.2.1' }),
+        namedParams: {
+          spec: 'AFNetworking',
+        },
+        staticPreview: {
+          label: 'pod',
+          message: 'v3.2.1',
+          color: 'blue',
+        },
       },
     ]
   }
 
-  static get defaultBadgeData() {
-    return { label: 'pod' }
-  }
-
-  async handle({ spec }) {
-    const { version } = await this.fetch({ spec })
-    return renderVersionBadge({ version })
-  }
+  // Legacy route handler is defined in cocoapods.service.js.
+  static registerLegacyRouteHandler() {}
 }

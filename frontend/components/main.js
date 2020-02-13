@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react'
+import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 import groupBy from 'lodash.groupby'
@@ -29,30 +29,55 @@ const AppContainer = styled(BaseFont)`
   text-align: center;
 `
 
-export default function Main({ pageContext }) {
-  const [searchIsInProgress, setSearchIsInProgress] = useState(false)
-  const [queryIsTooShort, setQueryIsTooShort] = useState(false)
-  const [searchResults, setSearchResults] = useState()
-  const [selectedExample, setSelectedExample] = useState()
-  const searchTimeout = useRef(0)
+export default class Main extends React.Component {
+  constructor(props) {
+    super(props)
 
-  function performSearch(query) {
-    setSearchIsInProgress(false)
+    this.state = {
+      isSearchInProgress: false,
+      isQueryTooShort: false,
+      searchResults: undefined,
+      selectedExample: undefined,
+    }
 
-    setQueryIsTooShort(query.length === 1)
+    this.searchTimeout = 0
 
+    this.handleExampleSelected = this.handleExampleSelected.bind(this)
+    this.dismissMarkupModal = this.dismissMarkupModal.bind(this)
+    this.searchQueryChanged = this.searchQueryChanged.bind(this)
+  }
+
+  static propTypes = {
+    // `pageContext` is the `context` passed to `createPage()` in
+    // `gatsby-node.js`. In the case of the index page, `pageContext` is empty.
+    pageContext: {
+      category: PropTypes.shape({
+        id: PropTypes.string.isRequired,
+        name: PropTypes.string.isRequired,
+      }),
+    }.isRequired,
+  }
+
+  performSearch(query) {
+    const isQueryTooShort = query.length === 1
+
+    let searchResults
     if (query.length >= 2) {
       const flat = ServiceDefinitionSetHelper.create(services)
         .notDeprecated()
         .search(query)
         .toArray()
-      setSearchResults(groupBy(flat, 'category'))
-    } else {
-      setSearchResults(undefined)
+      searchResults = groupBy(flat, 'category')
     }
+
+    this.setState({
+      isSearchInProgress: false,
+      isQueryTooShort,
+      searchResults,
+    })
   }
 
-  function searchQueryChanged(query) {
+  searchQueryChanged(query) {
     /*
     Add a small delay before showing search results
     so that we wait until the user has stopped typing
@@ -63,60 +88,48 @@ export default function Main({ pageContext }) {
     b) stops the page from 'flashing' as the user types, like this:
     https://user-images.githubusercontent.com/7288322/42600206-9b278470-85b5-11e8-9f63-eb4a0c31cb4a.gif
     */
-    setSearchIsInProgress(true)
-    window.clearTimeout(searchTimeout.current)
-    searchTimeout.current = window.setTimeout(() => performSearch(query), 500)
+    this.setState({ isSearchInProgress: true })
+    window.clearTimeout(this.searchTimeout)
+    this.searchTimeout = window.setTimeout(() => this.performSearch(query), 500)
   }
 
-  function dismissMarkupModal() {
-    setSelectedExample(undefined)
+  handleExampleSelected(example) {
+    this.setState({ selectedExample: example })
   }
 
-  function Category({ category, definitions }) {
-    const flattened = definitions
-      .reduce((accum, current) => {
-        const { examples } = current
-        return accum.concat(examples)
-      }, [])
-      .map(({ title, link, example, preview, documentation }) => ({
-        title,
-        link,
-        example,
-        preview,
-        documentation,
-      }))
+  dismissMarkupModal() {
+    this.setState({ selectedExample: undefined })
+  }
+
+  renderCategory(category, definitions) {
+    const { id } = category
 
     return (
-      <div>
+      <div key={id}>
         <CategoryHeading category={category} />
         <BadgeExamples
+          definitions={definitions}
+          onClick={this.handleExampleSelected}
           baseUrl={baseUrl}
-          examples={flattened}
-          onClick={setSelectedExample}
         />
       </div>
     )
   }
-  Category.propTypes = {
-    category: PropTypes.string.isRequired,
-    definitions: PropTypes.array.isRequired,
-  }
 
-  function renderMain() {
-    const { category } = pageContext
+  renderMain() {
+    const {
+      pageContext: { category },
+    } = this.props
+    const { isSearchInProgress, isQueryTooShort, searchResults } = this.state
 
-    if (searchIsInProgress) {
+    if (isSearchInProgress) {
       return <div>searching...</div>
-    } else if (queryIsTooShort) {
+    } else if (isQueryTooShort) {
       return <div>Search term must have 2 or more characters</div>
     } else if (searchResults) {
-      return Object.entries(searchResults).map(([categoryId, definitions]) => (
-        <Category
-          category={findCategory(categoryId)}
-          definitions={definitions}
-          key={categoryId}
-        />
-      ))
+      return Object.entries(searchResults).map(([categoryId, definitions]) =>
+        this.renderCategory(findCategory(categoryId), definitions)
+      )
     } else if (category) {
       const definitions = ServiceDefinitionSetHelper.create(
         getDefinitionsForCategory(category.id)
@@ -126,11 +139,7 @@ export default function Main({ pageContext }) {
       return (
         <div>
           <CategoryNav categories={categories} />
-          <Category
-            category={category}
-            definitions={definitions}
-            key={category.id}
-          />
+          {this.renderCategory(category, definitions)}
         </div>
       )
     } else {
@@ -138,38 +147,31 @@ export default function Main({ pageContext }) {
     }
   }
 
-  return (
-    <AppContainer id="app">
-      <GlobalStyle />
-      <Meta />
-      <Header />
-      <MarkupModal
-        baseUrl={baseUrl}
-        example={selectedExample}
-        onRequestClose={dismissMarkupModal}
-      />
-      <section>
-        <SuggestionAndSearch
-          baseUrl={baseUrl}
-          onBadgeClick={setSelectedExample}
-          queryChanged={searchQueryChanged}
-        />
-        <DonateBox />
-      </section>
-      {renderMain()}
-      <Usage baseUrl={baseUrl} />
-      <Footer baseUrl={baseUrl} />
-    </AppContainer>
-  )
-}
+  render() {
+    const { selectedExample } = this.state
 
-Main.propTypes = {
-  // `pageContext` is the `context` passed to `createPage()` in
-  // `gatsby-node.js`. In the case of the index page, `pageContext` is empty.
-  pageContext: {
-    category: PropTypes.shape({
-      id: PropTypes.string.isRequired,
-      name: PropTypes.string.isRequired,
-    }),
-  }.isRequired,
+    return (
+      <AppContainer id="app">
+        <GlobalStyle />
+        <Meta />
+        <Header />
+        <MarkupModal
+          example={selectedExample}
+          onRequestClose={this.dismissMarkupModal}
+          baseUrl={baseUrl}
+        />
+        <section>
+          <SuggestionAndSearch
+            queryChanged={this.searchQueryChanged}
+            onBadgeClick={this.handleExampleSelected}
+            baseUrl={baseUrl}
+          />
+          <DonateBox />
+        </section>
+        {this.renderMain()}
+        <Usage baseUrl={baseUrl} />
+        <Footer baseUrl={baseUrl} />
+      </AppContainer>
+    )
+  }
 }

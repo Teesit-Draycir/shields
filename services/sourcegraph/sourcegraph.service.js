@@ -1,6 +1,6 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const { BaseJsonService } = require('..')
 
 const projectsCountRegex = /^\s[0-9]*(\.[0-9]k)?\sprojects$/
@@ -11,6 +11,11 @@ const schema = Joi.object({
 }).required()
 
 module.exports = class Sourcegraph extends BaseJsonService {
+  static render({ projectsCount }) {
+    return {
+      message: projectsCount,
+    }
+  }
   static get category() {
     return 'other'
   }
@@ -18,8 +23,12 @@ module.exports = class Sourcegraph extends BaseJsonService {
   static get route() {
     return {
       base: 'sourcegraph/rrc',
-      pattern: ':repo(.*?)',
+      pattern: ':repo(.*)',
     }
+  }
+
+  static get defaultBadgeData() {
+    return { color: 'brightgreen', label: 'used by' }
   }
 
   static get examples() {
@@ -33,16 +42,6 @@ module.exports = class Sourcegraph extends BaseJsonService {
         staticPreview: this.render({ projectsCount: '9.9k projects' }),
       },
     ]
-  }
-
-  static get defaultBadgeData() {
-    return { color: 'brightgreen', label: 'used by' }
-  }
-
-  static render({ projectsCount }) {
-    return {
-      message: projectsCount,
-    }
   }
 
   async handle({ repo }) {

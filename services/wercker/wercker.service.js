@@ -1,7 +1,10 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { isBuildStatus, renderBuildStatusBadge } = require('../build-status')
+const Joi = require('joi')
+const {
+  isBuildStatus,
+  renderBuildStatusBadge,
+} = require('../../lib/build-status')
 const { BaseJsonService } = require('..')
 
 const werckerSchema = Joi.array()
@@ -15,6 +18,53 @@ const werckerSchema = Joi.array()
   .required()
 
 module.exports = class Wercker extends BaseJsonService {
+  static getBaseUrl({ projectId, applicationName }) {
+    if (applicationName) {
+      return `https://app.wercker.com/api/v3/applications/${applicationName}/builds`
+    } else {
+      return `https://app.wercker.com/api/v3/runs?applicationId=${projectId}`
+    }
+  }
+
+  async fetch({ baseUrl, branch }) {
+    return this._requestJson({
+      schema: werckerSchema,
+      url: baseUrl,
+      options: {
+        qs: {
+          branch,
+          limit: 1,
+        },
+      },
+      errorMessages: {
+        401: 'private application not supported',
+        404: 'application not found',
+      },
+    })
+  }
+
+  static render({ result }) {
+    return renderBuildStatusBadge({ status: result })
+  }
+
+  async handle({ projectId, applicationName, branch }) {
+    const json = await this.fetch({
+      baseUrl: this.constructor.getBaseUrl({
+        projectId,
+        applicationName,
+      }),
+      branch,
+    })
+    if (json.length === 0) {
+      return this.constructor.render({
+        result: 'no builds',
+      })
+    }
+    const { result } = json[0]
+    return this.constructor.render({ result })
+  }
+
+  // Metadata
   static get category() {
     return 'build'
   }
@@ -23,7 +73,7 @@ module.exports = class Wercker extends BaseJsonService {
     return {
       base: 'wercker',
       format:
-        '(?:(?:ci/)([a-fA-F0-9]{24})|(?:build|ci)/([^/]+/[^/]+?))(?:/(.+?))?',
+        '(?:(?:ci/)([a-fA-F0-9]{24})|(?:build|ci)/([^/]+/[^/]+))(?:/(.+))?',
       capture: ['projectId', 'applicationName', 'branch'],
     }
   }
@@ -65,51 +115,5 @@ module.exports = class Wercker extends BaseJsonService {
         staticPreview: this.render({ result: 'passed' }),
       },
     ]
-  }
-
-  static render({ result }) {
-    return renderBuildStatusBadge({ status: result })
-  }
-
-  static getBaseUrl({ projectId, applicationName }) {
-    if (applicationName) {
-      return `https://app.wercker.com/api/v3/applications/${applicationName}/builds`
-    } else {
-      return `https://app.wercker.com/api/v3/runs?applicationId=${projectId}`
-    }
-  }
-
-  async fetch({ baseUrl, branch }) {
-    return this._requestJson({
-      schema: werckerSchema,
-      url: baseUrl,
-      options: {
-        qs: {
-          branch,
-          limit: 1,
-        },
-      },
-      errorMessages: {
-        401: 'private application not supported',
-        404: 'application not found',
-      },
-    })
-  }
-
-  async handle({ projectId, applicationName, branch }) {
-    const json = await this.fetch({
-      baseUrl: this.constructor.getBaseUrl({
-        projectId,
-        applicationName,
-      }),
-      branch,
-    })
-    if (json.length === 0) {
-      return this.constructor.render({
-        result: 'not built',
-      })
-    }
-    const { result } = json[0]
-    return this.constructor.render({ result })
   }
 }

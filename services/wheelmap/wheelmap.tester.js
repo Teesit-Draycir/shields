@@ -1,53 +1,94 @@
 'use strict'
 
-const config = require('config').util.toObject()
+const serverSecrets = require('../../lib/server-secrets')
+
 const t = (module.exports = require('../tester').createServiceTester())
 
-function checkShouldSkip() {
-  const noToken = !config.private.wheelmap_token
+const noToken = !serverSecrets.wheelmap_token
+function logTokenWarning() {
   if (noToken) {
     console.warn(
-      'No Wheelmap token configured. Service tests will be skipped. Add a token in local.yml to run these tests.'
+      "No token provided, this test will mock Wheelmap's API responses."
     )
   }
-  return noToken
 }
 
 t.create('node with accessibility')
-  .skipWhen(checkShouldSkip)
-  .get('/26699541.json')
+  .before(logTokenWarning)
+  .get('/26699541.json?style=_shields_test')
   .timeout(7500)
-  .expectBadge({
-    label: 'accessibility',
-    message: 'yes',
+  .interceptIf(noToken, nock =>
+    nock('https://wheelmap.org/')
+      .get('/api/nodes/26699541')
+      .reply(
+        200,
+        JSON.stringify({
+          node: {
+            wheelchair: 'yes',
+          },
+        })
+      )
+  )
+  .expectJSON({
+    name: 'accessibility',
+    value: 'yes',
     color: 'brightgreen',
   })
 
 t.create('node with limited accessibility')
-  .skipWhen(checkShouldSkip)
-  .get('/2034868974.json')
+  .before(logTokenWarning)
+  .get('/2034868974.json?style=_shields_test')
   .timeout(7500)
-  .expectBadge({
-    label: 'accessibility',
-    message: 'limited',
+  .interceptIf(noToken, nock =>
+    nock('https://wheelmap.org/')
+      .get('/api/nodes/2034868974')
+      .reply(
+        200,
+        JSON.stringify({
+          node: {
+            wheelchair: 'limited',
+          },
+        })
+      )
+  )
+  .expectJSON({
+    name: 'accessibility',
+    value: 'limited',
     color: 'yellow',
   })
 
 t.create('node without accessibility')
-  .skipWhen(checkShouldSkip)
-  .get('/-147495158.json')
+  .before(logTokenWarning)
+  .get('/-147495158.json?style=_shields_test')
   .timeout(7500)
-  .expectBadge({
-    label: 'accessibility',
-    message: 'no',
+  .interceptIf(noToken, nock =>
+    nock('https://wheelmap.org/')
+      .get('/api/nodes/-147495158')
+      .reply(
+        200,
+        JSON.stringify({
+          node: {
+            wheelchair: 'no',
+          },
+        })
+      )
+  )
+  .expectJSON({
+    name: 'accessibility',
+    value: 'no',
     color: 'red',
   })
 
 t.create('node not found')
-  .skipWhen(checkShouldSkip)
+  .before(logTokenWarning)
   .get('/0.json')
   .timeout(7500)
-  .expectBadge({
-    label: 'accessibility',
-    message: 'node not found',
+  .interceptIf(noToken, nock =>
+    nock('https://wheelmap.org/')
+      .get('/api/nodes/0')
+      .reply(404)
+  )
+  .expectJSON({
+    name: 'accessibility',
+    value: 'node not found',
   })

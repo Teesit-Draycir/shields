@@ -1,30 +1,21 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { metric } = require('../text-formatters')
-const { nonNegativeInteger } = require('../validators')
-const { downloadCount: downloadCountColor } = require('../color-formatters')
-const { GithubAuthV3Service } = require('./github-auth-service')
-const { documentation, errorMessagesFor } = require('./github-helpers')
-const { NotFound } = require('..')
+const LegacyService = require('../legacy-service')
+const { makeBadgeData: getBadgeData } = require('../../lib/badge-data')
+const { makeLogo: getLogo } = require('../../lib/logos')
+const { metric } = require('../../lib/text-formatters')
+const {
+  documentation,
+  checkErrorResponse: githubCheckErrorResponse,
+} = require('./github-helpers')
 
-const releaseSchema = Joi.object({
-  assets: Joi.array()
-    .items({
-      name: Joi.string().required(),
-      download_count: nonNegativeInteger,
-    })
-    .required(),
-}).required()
-
-const releaseArraySchema = Joi.alternatives().try(
-  Joi.array().items(releaseSchema),
-  Joi.array().length(0)
-)
-
-const keywords = ['github download']
-
-module.exports = class GithubDownloads extends GithubAuthV3Service {
+// This legacy service should be rewritten to use e.g. BaseJsonService.
+//
+// Tips for rewriting:
+// https://github.com/badges/shields/blob/master/doc/rewriting-services.md
+//
+// Do not base new services on this code.
+module.exports = class GithubDownloads extends LegacyService {
   static get category() {
     return 'downloads'
   }
@@ -32,7 +23,7 @@ module.exports = class GithubDownloads extends GithubAuthV3Service {
   static get route() {
     return {
       base: 'github',
-      pattern: ':kind(downloads|downloads-pre)/:user/:repo/:tag*/:assetName',
+      pattern: '',
     }
   }
 
@@ -45,12 +36,12 @@ module.exports = class GithubDownloads extends GithubAuthV3Service {
           user: 'atom',
           repo: 'atom',
         },
-        staticPreview: this.render({
-          assetName: 'total',
-          downloadCount: 857000,
-        }),
+        staticPreview: {
+          label: 'downloads',
+          message: '857k total',
+          color: 'brightgreen',
+        },
         documentation,
-        keywords,
       },
       {
         title: 'GitHub Releases',
@@ -60,13 +51,12 @@ module.exports = class GithubDownloads extends GithubAuthV3Service {
           repo: 'atom',
           tag: 'latest',
         },
-        staticPreview: this.render({
-          tag: 'latest',
-          assetName: 'total',
-          downloadCount: 27000,
-        }),
+        staticPreview: {
+          label: 'downloads',
+          message: '27k',
+          color: 'brightgreen',
+        },
         documentation,
-        keywords,
       },
       {
         title: 'GitHub Pre-Releases',
@@ -76,13 +66,12 @@ module.exports = class GithubDownloads extends GithubAuthV3Service {
           repo: 'atom',
           tag: 'latest',
         },
-        staticPreview: this.render({
-          tag: 'latest',
-          assetName: 'total',
-          downloadCount: 2000,
-        }),
+        staticPreview: {
+          label: 'downloads',
+          message: '2k',
+          color: 'brightgreen',
+        },
         documentation,
-        keywords,
       },
       {
         title: 'GitHub Releases (by Release)',
@@ -92,13 +81,12 @@ module.exports = class GithubDownloads extends GithubAuthV3Service {
           repo: 'atom',
           tag: 'v0.190.0',
         },
-        staticPreview: this.render({
-          tag: 'v0.190.0',
-          assetName: 'total',
-          downloadCount: 490000,
-        }),
+        staticPreview: {
+          label: 'downloads',
+          message: '490k v0.190.0',
+          color: 'brightgreen',
+        },
         documentation,
-        keywords,
       },
       {
         title: 'GitHub Releases (by Asset)',
@@ -109,13 +97,12 @@ module.exports = class GithubDownloads extends GithubAuthV3Service {
           tag: 'latest',
           path: 'atom-amd64.deb',
         },
-        staticPreview: this.render({
-          tag: 'latest',
-          assetName: 'atom-amd64.deb',
-          downloadCount: 3000,
-        }),
+        staticPreview: {
+          label: 'downloads',
+          message: '3k [atom-amd64.deb]',
+          color: 'brightgreen',
+        },
         documentation,
-        keywords,
       },
       {
         title: 'GitHub Pre-Releases (by Asset)',
@@ -126,98 +113,116 @@ module.exports = class GithubDownloads extends GithubAuthV3Service {
           tag: 'latest',
           path: 'atom-amd64.deb',
         },
-        staticPreview: this.render({
-          tag: 'latest',
-          assetName: 'atom-amd64.deb',
-          downloadCount: 237,
-        }),
+        staticPreview: {
+          label: 'downloads',
+          message: '237 [atom-amd64.deb]',
+          color: 'brightgreen',
+        },
         documentation,
-        keywords,
       },
     ]
   }
 
-  static get defaultBadgeData() {
-    return {
-      label: 'downloads',
-      namedLogo: 'github',
-    }
-  }
+  static registerLegacyRouteHandler({ camp, cache, githubApiProvider }) {
+    camp.route(
+      /^\/github\/(downloads|downloads-pre)\/([^/]+)\/([^/]+)(\/.+)?\/([^/]+)\.(svg|png|gif|jpg|json)$/,
+      cache((data, match, sendBadge, request) => {
+        const type = match[1] // downloads or downloads-pre
+        const user = match[2] // eg, qubyte/rubidium
+        const repo = match[3]
 
-  static render({ tag, assetName, downloadCount }) {
-    return {
-      label: tag ? `downloads@${tag}` : 'downloads',
-      message:
-        assetName === 'total'
-          ? metric(downloadCount)
-          : `${metric(downloadCount)} [${assetName}]`,
-      color: downloadCountColor(downloadCount),
-    }
-  }
+        let tag = match[4] // eg, v0.190.0, latest, null if querying all releases
+        const assetName = match[5].toLowerCase() // eg. total, atom-amd64.deb, atom.x86_64.rpm
+        const format = match[6]
 
-  static transform({ releases, assetName }) {
-    const downloadCount = releases.reduce((accum1, { assets }) => {
-      const filteredAssets =
-        assetName === 'total'
-          ? assets
-          : assets.filter(
-              ({ name }) => name.toLowerCase() === assetName.toLowerCase()
+        if (tag) {
+          tag = tag.slice(1)
+        }
+
+        let total = true
+        if (tag) {
+          total = false
+        }
+
+        let apiUrl = `/repos/${user}/${repo}/releases`
+        if (!total) {
+          const releasePath =
+            tag === 'latest'
+              ? type === 'downloads'
+                ? 'latest'
+                : ''
+              : `tags/${tag}`
+          if (releasePath) {
+            apiUrl = `${apiUrl}/${releasePath}`
+          }
+        }
+        const badgeData = getBadgeData('downloads', data)
+        if (badgeData.template === 'social') {
+          badgeData.logo = getLogo('github', data)
+        }
+        githubApiProvider.request(request, apiUrl, {}, (err, res, buffer) => {
+          if (
+            githubCheckErrorResponse(
+              badgeData,
+              err,
+              res,
+              'repo or release not found'
             )
-      return (
-        accum1 +
-        filteredAssets.reduce(
-          (accum2, { download_count: downloadCount }) => accum2 + downloadCount,
-          0
-        )
-      )
-    }, 0)
-    return { downloadCount }
-  }
+          ) {
+            sendBadge(format, badgeData)
+            return
+          }
+          try {
+            let data = JSON.parse(buffer)
+            if (type === 'downloads-pre' && tag === 'latest') {
+              data = data[0]
+            }
+            let downloads = 0
 
-  async handle({ kind, user, repo, tag, assetName }) {
-    let releases
-    if (tag === 'latest' && kind === 'downloads') {
-      const latestRelease = await this._requestJson({
-        schema: releaseSchema,
-        url: `/repos/${user}/${repo}/releases/latest`,
-        errorMessages: errorMessagesFor('repo not found'),
-      })
-      releases = [latestRelease]
-    } else if (tag === 'latest') {
-      // Keep only the latest release.
-      const [latestReleaseIncludingPrereleases] = await this._requestJson({
-        schema: releaseArraySchema,
-        url: `/repos/${user}/${repo}/releases`,
-        options: { qs: { per_page: 1 } },
-        errorMessages: errorMessagesFor('repo not found'),
-      })
-      releases = [latestReleaseIncludingPrereleases]
-    } else if (tag) {
-      const wantedRelease = await this._requestJson({
-        schema: releaseSchema,
-        url: `/repos/${user}/${repo}/releases/tags/${tag}`,
-        errorMessages: errorMessagesFor('repo or release not found'),
-      })
-      releases = [wantedRelease]
-    } else {
-      const allReleases = await this._requestJson({
-        schema: releaseArraySchema,
-        url: `/repos/${user}/${repo}/releases`,
-        options: { qs: { per_page: 500 } },
-        errorMessages: errorMessagesFor('repo not found'),
-      })
-      releases = allReleases
-    }
+            const labelWords = []
+            if (total) {
+              data.forEach(tagData => {
+                tagData.assets.forEach(asset => {
+                  if (
+                    assetName === 'total' ||
+                    assetName === asset.name.toLowerCase()
+                  ) {
+                    downloads += asset.download_count
+                  }
+                })
+              })
 
-    if (releases.length === 0) {
-      throw new NotFound({ prettyMessage: 'no releases' })
-    }
+              labelWords.push('total')
+              if (assetName !== 'total') {
+                labelWords.push(`[${assetName}]`)
+              }
+            } else {
+              data.assets.forEach(asset => {
+                if (
+                  assetName === 'total' ||
+                  assetName === asset.name.toLowerCase()
+                ) {
+                  downloads += asset.download_count
+                }
+              })
 
-    const { downloadCount } = this.constructor.transform({
-      releases,
-      assetName,
-    })
-
-    return this.constructor.render({ tag, assetName, downloadCount })
+              if (tag !== 'latest') {
+                labelWords.push(tag)
+              }
+              if (assetName !== 'total') {
+                labelWords.push(`[${assetName}]`)
+              }
+            }
+            labelWords.unshift(metric(downloads))
+            badgeData.text[1] = labelWords.join(' ')
+            badgeData.colorscheme = 'brightgreen'
+            sendBadge(format, badgeData)
+          } catch (e) {
+            badgeData.text[1] = 'none'
+            sendBadge(format, badgeData)
+          }
+        })
+      })
+    )
   }
 }

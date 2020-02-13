@@ -1,6 +1,6 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const { BaseJsonService } = require('..')
 
 const schema = Joi.object({
@@ -16,28 +16,13 @@ const schema = Joi.object({
     .required(),
 }).required()
 
-const hostMappings = {
-  github: 'g',
-  bitbucket: 'b',
-  gitlab: 'gl',
-}
-
 module.exports = class LgtmBaseService extends BaseJsonService {
-  static get category() {
-    return 'analysis'
-  }
-
   static get defaultBadgeData() {
     return { label: 'lgtm' }
   }
 
-  static get pattern() {
-    return `:host(${Object.keys(hostMappings).join('|')})/:user/:repo`
-  }
-
-  async fetch({ host, user, repo }) {
-    const mappedHost = hostMappings[host]
-    const url = `https://lgtm.com/api/v0.1/project/${mappedHost}/${user}/${repo}/details`
+  async fetch({ user, repo }) {
+    const url = `https://lgtm.com/api/v0.1/project/g/${user}/${repo}/details`
 
     return this._requestJson({
       schema,
@@ -46,5 +31,9 @@ module.exports = class LgtmBaseService extends BaseJsonService {
         404: 'project not found',
       },
     })
+  }
+
+  static get category() {
+    return 'analysis'
   }
 }

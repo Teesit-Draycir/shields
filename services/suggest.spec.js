@@ -2,9 +2,9 @@
 
 const Camp = require('camp')
 const { expect } = require('chai')
+const got = require('got')
 const nock = require('nock')
 const portfinder = require('portfinder')
-const got = require('../core/got-test-client')
 const { setRoutes, githubLicense } = require('./suggest')
 const GithubApiProvider = require('./github/github-api-provider')
 
@@ -34,12 +34,8 @@ describe('Badge suggestions', function() {
 
         expect(await githubLicense(apiProvider, 'atom', 'atom')).to.deep.equal({
           title: 'GitHub license',
+          path: '/github/license/atom/atom',
           link: 'https://github.com/atom/atom/blob/master/LICENSE.md',
-          example: {
-            pattern: '/github/license/:user/:repo',
-            namedParams: { user: 'atom', repo: 'atom' },
-            queryParams: {},
-          },
         })
 
         scope.done()
@@ -56,12 +52,8 @@ describe('Badge suggestions', function() {
 
         expect(await githubLicense(apiProvider, 'atom', 'atom')).to.deep.equal({
           title: 'GitHub license',
+          path: '/github/license/atom/atom',
           link: 'https://github.com/atom/atom',
-          example: {
-            pattern: '/github/license/:user/:repo',
-            namedParams: { user: 'atom', repo: 'atom' },
-            queryParams: {},
-          },
         })
 
         scope.done()
@@ -122,52 +114,29 @@ describe('Badge suggestions', function() {
             {
               title: 'GitHub issues',
               link: 'https://github.com/atom/atom/issues',
-              example: {
-                pattern: '/github/issues/:user/:repo',
-                namedParams: { user: 'atom', repo: 'atom' },
-                queryParams: {},
-              },
+              path: '/github/issues/atom/atom',
             },
             {
               title: 'GitHub forks',
               link: 'https://github.com/atom/atom/network',
-              example: {
-                pattern: '/github/forks/:user/:repo',
-                namedParams: { user: 'atom', repo: 'atom' },
-                queryParams: {},
-              },
+              path: '/github/forks/atom/atom',
             },
             {
               title: 'GitHub stars',
               link: 'https://github.com/atom/atom/stargazers',
-              example: {
-                pattern: '/github/stars/:user/:repo',
-                namedParams: { user: 'atom', repo: 'atom' },
-                queryParams: {},
-              },
+              path: '/github/stars/atom/atom',
             },
             {
               title: 'GitHub license',
+              path: '/github/license/atom/atom',
               link: 'https://github.com/atom/atom/blob/master/LICENSE.md',
-              example: {
-                pattern: '/github/license/:user/:repo',
-                namedParams: { user: 'atom', repo: 'atom' },
-                queryParams: {},
-              },
             },
             {
               title: 'Twitter',
               link:
                 'https://twitter.com/intent/tweet?text=Wow:&url=https%3A%2F%2Fgithub.com%2Fatom%2Fatom',
-              example: {
-                pattern: '/twitter/url/:protocol(https|http)/:hostAndPath+',
-                namedParams: {
-                  protocol: 'https',
-                  hostAndPath: 'github.com/atom/atom',
-                },
-                queryParams: {},
-              },
-              preview: {
+              path: '/twitter/url/https/github.com/atom/atom',
+              queryParams: {
                 style: 'social',
               },
             },

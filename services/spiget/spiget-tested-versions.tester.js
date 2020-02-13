@@ -1,22 +1,26 @@
 'use strict'
 
+const Joi = require('joi')
 const { withRegex } = require('../test-validators')
-const t = (module.exports = require('../tester').createServiceTester())
 
 const multipleVersions = withRegex(/^([+]?\d*\.\d+)(-)([+]?\d*\.\d+)$/)
 
+const t = (module.exports = require('../tester').createServiceTester())
+
 t.create('EssentialsX - multiple versions supported - (id 9089)')
   .get('/9089.json')
-  .expectBadge({
-    label: 'tested versions',
-    message: multipleVersions,
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'tested versions',
+      value: multipleVersions,
+    })
+  )
 
 t.create('Invalid Resource (id 1)')
   .get('/1.json')
-  .expectBadge({
-    label: 'tested versions',
-    message: 'not found',
+  .expectJSON({
+    name: 'tested versions',
+    value: 'not found',
   })
 
 t.create('Nock - single version supported')
@@ -37,9 +41,9 @@ t.create('Nock - single version supported')
         },
       })
   )
-  .expectBadge({
-    label: 'tested versions',
-    message: '1.13',
+  .expectJSON({
+    name: 'tested versions',
+    value: '1.13',
   })
 
 t.create('Nock - multiple versions supported')
@@ -60,7 +64,7 @@ t.create('Nock - multiple versions supported')
         },
       })
   )
-  .expectBadge({
-    label: 'tested versions',
-    message: '1.10-1.13',
+  .expectJSON({
+    name: 'tested versions',
+    value: '1.10-1.13',
   })

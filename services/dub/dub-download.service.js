@@ -1,10 +1,10 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { metric } = require('../text-formatters')
-const { downloadCount: downloadCountColor } = require('../color-formatters')
-const { nonNegativeInteger } = require('../validators')
+const Joi = require('joi')
+const { metric } = require('../../lib/text-formatters')
+const { downloadCount } = require('../../lib/color-formatters')
 const { BaseJsonService } = require('..')
+const { nonNegativeInteger } = require('../validators')
 
 const schema = Joi.object({
   downloads: Joi.object({
@@ -15,101 +15,98 @@ const schema = Joi.object({
   }).required(),
 })
 
-const intervalMap = {
-  dd: {
-    transform: json => json.downloads.daily,
-    messageSuffix: '/day',
-  },
-  dw: {
-    transform: json => json.downloads.weekly,
-    messageSuffix: '/week',
-  },
-  dm: {
-    transform: json => json.downloads.monthly,
-    messageSuffix: '/month',
-  },
-  dt: {
-    transform: json => json.downloads.total,
-    messageSuffix: '',
-  },
+function DownloadsForInterval(interval) {
+  const { base, messageSuffix } = {
+    daily: {
+      base: 'dub/dd',
+      messageSuffix: '/day',
+    },
+    weekly: {
+      base: 'dub/dw',
+      messageSuffix: '/week',
+    },
+    monthly: {
+      base: 'dub/dm',
+      messageSuffix: '/month',
+    },
+    total: {
+      base: 'dub/dt',
+      messageSuffix: '',
+    },
+  }[interval]
+
+  return class DubDownloads extends BaseJsonService {
+    static render({ downloads, version }) {
+      const label = version ? `downloads@${version}` : 'downloads'
+      return {
+        label,
+        message: `${metric(downloads)}${messageSuffix}`,
+        color: downloadCount(downloads),
+      }
+    }
+
+    async fetch({ packageName, version }) {
+      let url = `https://code.dlang.org/api/packages/${packageName}`
+      if (version) {
+        url += `/${version}`
+      }
+      url += '/stats'
+      return this._requestJson({ schema, url })
+    }
+
+    async handle({ packageName, version }) {
+      const data = await this.fetch({ packageName, version })
+      return this.constructor.render({
+        downloads: data.downloads[interval],
+        version,
+      })
+    }
+
+    static get defaultBadgeData() {
+      return { label: 'downloads' }
+    }
+
+    static get category() {
+      return 'downloads'
+    }
+
+    static get route() {
+      return {
+        base,
+        pattern: ':packageName/:version*',
+      }
+    }
+
+    static get examples() {
+      let examples = [
+        {
+          title: 'DUB',
+          pattern: ':packageName',
+          namedParams: { packageName: 'vibe-d' },
+          staticPreview: this.render({ downloads: 5000 }),
+        },
+      ]
+      if (interval === 'monthly') {
+        examples = examples.concat([
+          {
+            title: 'DUB (version)',
+            pattern: ':packageName/:version',
+            namedParams: { packageName: 'vibe-d', version: '0.8.4' },
+            staticPreview: this.render({ downloads: 100, version: '0.8.4' }),
+          },
+          {
+            title: 'DUB (latest)',
+            pattern: ':packageName/:version',
+            namedParams: { packageName: 'vibe-d', version: 'latest' },
+            staticPreview: this.render({ downloads: 100, version: 'latest' }),
+          },
+        ])
+      }
+      return examples
+    }
+  }
 }
 
-module.exports = class DubDownloads extends BaseJsonService {
-  static get category() {
-    return 'downloads'
-  }
-
-  static get route() {
-    return {
-      base: 'dub',
-      pattern: ':interval(dd|dw|dm|dt)/:packageName/:version*',
-    }
-  }
-
-  static get examples() {
-    return [
-      {
-        title: 'DUB',
-        namedParams: { interval: 'dm', packageName: 'vibe-d' },
-        staticPreview: this.render({ interval: 'dm', downloadCount: 5000 }),
-      },
-      {
-        title: 'DUB (version)',
-        namedParams: {
-          interval: 'dm',
-          packageName: 'vibe-d',
-          version: '0.8.4',
-        },
-        staticPreview: this.render({
-          interval: 'dm',
-          version: '0.8.4',
-          downloadCount: 100,
-        }),
-      },
-      {
-        title: 'DUB (latest)',
-        namedParams: {
-          interval: 'dm',
-          packageName: 'vibe-d',
-          version: 'latest',
-        },
-        staticPreview: this.render({
-          interval: 'dm',
-          version: 'latest',
-          downloadCount: 100,
-        }),
-      },
-    ]
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'downloads' }
-  }
-
-  static render({ interval, version, downloadCount }) {
-    const { messageSuffix } = intervalMap[interval]
-
-    return {
-      label: version ? `downloads@${version}` : 'downloads',
-      message: `${metric(downloadCount)}${messageSuffix}`,
-      color: downloadCountColor(downloadCount),
-    }
-  }
-
-  async fetch({ packageName, version }) {
-    let url = `https://code.dlang.org/api/packages/${packageName}`
-    if (version) {
-      url += `/${version}`
-    }
-    url += '/stats'
-    return this._requestJson({ schema, url })
-  }
-
-  async handle({ interval, packageName, version }) {
-    const { transform } = intervalMap[interval]
-
-    const json = await this.fetch({ packageName, version })
-    const downloadCount = transform(json)
-    return this.constructor.render({ interval, downloadCount, version })
-  }
-}
+module.exports = ['daily', 'weekly', 'monthly', 'total'].map(
+  DownloadsForInterval
+)

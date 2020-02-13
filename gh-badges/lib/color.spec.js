@@ -5,16 +5,7 @@ const { isHexColor, normalizeColor, toSvgColor } = require('./color')
 
 test(isHexColor, () => {
   forCases([given('f00bae'), given('4c1'), given('ABC123')]).expect(true)
-  forCases([
-    given('f00bar'),
-    given(''),
-    given(undefined),
-    given(null),
-    given(true),
-    given([]),
-    given({}),
-    given(() => {}),
-  ]).expect(false)
+  forCases([given('f00bar'), given(''), given(undefined)]).expect(false)
 })
 
 test(normalizeColor, () => {
@@ -26,16 +17,9 @@ test(normalizeColor, () => {
   given('#ABC123').expect('#abc123')
   given('papayawhip').expect('papayawhip')
   given('purple').expect('purple')
-  forCases([
-    given(''),
-    given('not-a-color'),
-    given(undefined),
-    given(null),
-    given(true),
-    given([]),
-    given({}),
-    given(() => {}),
-  ]).expect(undefined)
+  forCases([given(''), given(undefined), given('not-a-color')]).expect(
+    undefined
+  )
   given('lightgray').expect('lightgrey')
   given('informational').expect('blue')
 })

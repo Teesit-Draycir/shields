@@ -1,8 +1,7 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const { invalidJSON } = require('../response-fixtures')
-const t = (module.exports = require('../tester').createServiceTester())
 
 const isUptimeStatus = Joi.string().valid(
   'paused',
@@ -12,23 +11,24 @@ const isUptimeStatus = Joi.string().valid(
   'down'
 )
 
+const t = (module.exports = require('../tester').createServiceTester())
+
 t.create('Uptime Robot: Status (valid)')
   .get('/m778918918-3e92c097147760ee39d02d36.json')
-  .expectBadge({
-    label: 'status',
-    message: isUptimeStatus,
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'status',
+      value: isUptimeStatus,
+    })
+  )
 
 t.create('Uptime Robot: Status (invalid, correct format)')
   .get('/m777777777-333333333333333333333333.json')
-  .expectBadge({ label: 'status', message: 'api_key not found.' })
+  .expectJSON({ name: 'status', value: 'api_key not found.' })
 
 t.create('Uptime Robot: Status (invalid, incorrect format)')
   .get('/not-a-service.json')
-  .expectBadge({
-    label: 'status',
-    message: 'must use a monitor-specific api key',
-  })
+  .expectJSON({ name: 'status', value: 'must use a monitor-specific api key' })
 
 t.create('Uptime Robot: Status (unspecified error)')
   .get('/m778918918-3e92c097147760ee39d02d36.json')
@@ -37,7 +37,7 @@ t.create('Uptime Robot: Status (unspecified error)')
       .post('/v2/getMonitors')
       .reply(200, '{"stat": "fail"}')
   )
-  .expectBadge({ label: 'status', message: 'service error' })
+  .expectJSON({ name: 'status', value: 'service error' })
 
 t.create('Uptime Robot: Status (service unavailable)')
   .get('/m778918918-3e92c097147760ee39d02d36.json')
@@ -46,7 +46,7 @@ t.create('Uptime Robot: Status (service unavailable)')
       .post('/v2/getMonitors')
       .reply(503, '{"error": "oh noes!!"}')
   )
-  .expectBadge({ label: 'status', message: 'inaccessible' })
+  .expectJSON({ name: 'status', value: 'inaccessible' })
 
 t.create('Uptime Robot: Status (unexpected response, valid json)')
   .get('/m778918918-3e92c097147760ee39d02d36.json')
@@ -55,7 +55,7 @@ t.create('Uptime Robot: Status (unexpected response, valid json)')
       .post('/v2/getMonitors')
       .reply(200, '[]')
   )
-  .expectBadge({ label: 'status', message: 'invalid response data' })
+  .expectJSON({ name: 'status', value: 'invalid response data' })
 
 t.create('Uptime Robot: Status (unexpected response, invalid json)')
   .get('/m778918918-3e92c097147760ee39d02d36.json')
@@ -64,4 +64,4 @@ t.create('Uptime Robot: Status (unexpected response, invalid json)')
       .post('/v2/getMonitors')
       .reply(invalidJSON)
   )
-  .expectBadge({ label: 'status', message: 'unparseable json response' })
+  .expectJSON({ name: 'status', value: 'unparseable json response' })

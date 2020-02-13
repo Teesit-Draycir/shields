@@ -1,6 +1,6 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const { ServiceTester } = require('../tester')
 
 const t = new ServiceTester({
@@ -17,10 +17,12 @@ t.create('latest version')
       .get('/current/update-center.actual.json')
       .reply(200, { plugins: { blueocean: { version: '1.1.6' } } })
   )
-  .expectBadge({
-    label: 'plugin',
-    message: Joi.string().regex(/^v(.*)$/),
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'plugin',
+      value: Joi.string().regex(/^v(.*)$/),
+    })
+  )
 
 t.create('version 0')
   .get('/plugin/v/blueocean.json')
@@ -29,10 +31,12 @@ t.create('version 0')
       .get('/current/update-center.actual.json')
       .reply(200, { plugins: { blueocean: { version: '0' } } })
   )
-  .expectBadge({
-    label: 'plugin',
-    message: Joi.string().regex(/^v0$/),
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'plugin',
+      value: Joi.string().regex(/^v0$/),
+    })
+  )
 
 t.create('inexistent artifact')
   .get('/plugin/v/inexistent-artifact-id.json')
@@ -41,4 +45,9 @@ t.create('inexistent artifact')
       .get('/current/update-center.actual.json')
       .reply(200, { plugins: { blueocean: { version: '1.1.6' } } })
   )
-  .expectBadge({ label: 'plugin', message: 'plugin not found' })
+  .expectJSON({ name: 'plugin', value: 'not found' })
+
+t.create('connection error')
+  .get('/plugin/v/blueocean.json')
+  .networkOff()
+  .expectJSON({ name: 'plugin', value: 'inaccessible' })

@@ -10,12 +10,12 @@ const t = (module.exports = new ServiceTester({
 
 t.create('license')
   .get('/libc.json')
-  .expectBadge({ label: 'license', message: 'MIT OR Apache-2.0' })
+  .expectJSON({ name: 'license', value: 'MIT OR Apache-2.0' })
 
 t.create('license (with version)')
   .get('/libc/0.2.44.json')
-  .expectBadge({ label: 'license', message: 'MIT OR Apache-2.0' })
+  .expectJSON({ name: 'license', value: 'MIT OR Apache-2.0' })
 
 t.create('license (not found)')
   .get('/not-a-real-package.json')
-  .expectBadge({ label: 'crates.io', message: 'not found' })
+  .expectJSON({ name: 'crates.io', value: 'not found' })

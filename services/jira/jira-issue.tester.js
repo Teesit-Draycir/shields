@@ -1,17 +1,18 @@
 'use strict'
 
 const t = (module.exports = require('../tester').createServiceTester())
+const { mockJiraCreds, restore, user, pass } = require('./jira-test-helpers')
 
-t.create('unknown issue')
+t.create('live: unknown issue')
   .get('/https/issues.apache.org/jira/notArealIssue-000.json')
-  .expectBadge({ label: 'jira', message: 'issue not found' })
+  .expectJSON({ name: 'jira', value: 'issue not found' })
 
-t.create('known issue')
+t.create('live: known issue')
   .get('/https/issues.apache.org/jira/kafka-2896.json')
-  .expectBadge({ label: 'kafka-2896', message: 'Resolved' })
+  .expectJSON({ name: 'kafka-2896', value: 'Resolved' })
 
 t.create('no status color')
-  .get('/http/issues.apache.org/jira/foo-123.json')
+  .get('/http/issues.apache.org/jira/foo-123.json?style=_shields_test')
   .intercept(nock =>
     nock('http://issues.apache.org/jira/rest/api/2/issue')
       .get(`/${encodeURIComponent('foo-123')}`)
@@ -23,14 +24,14 @@ t.create('no status color')
         },
       })
   )
-  .expectBadge({
-    label: 'foo-123',
-    message: 'pending',
+  .expectJSON({
+    name: 'foo-123',
+    value: 'pending',
     color: 'lightgrey',
   })
 
 t.create('green status color')
-  .get('/https/issues.apache.org:8000/jira/bar-345.json')
+  .get('/https/issues.apache.org:8000/jira/bar-345.json?style=_shields_test')
   .intercept(nock =>
     nock('https://issues.apache.org:8000/jira/rest/api/2/issue')
       .get(`/${encodeURIComponent('bar-345')}`)
@@ -45,14 +46,14 @@ t.create('green status color')
         },
       })
   )
-  .expectBadge({
-    label: 'bar-345',
-    message: 'done',
+  .expectJSON({
+    name: 'bar-345',
+    value: 'done',
     color: 'green',
   })
 
 t.create('medium-gray status color')
-  .get('/https/issues.apache.org:8080/abc-123.json')
+  .get('/https/issues.apache.org:8080/abc-123.json?style=_shields_test')
   .intercept(nock =>
     nock('https://issues.apache.org:8080/rest/api/2/issue')
       .get(`/${encodeURIComponent('abc-123')}`)
@@ -67,14 +68,14 @@ t.create('medium-gray status color')
         },
       })
   )
-  .expectBadge({
-    label: 'abc-123',
-    message: 'under review',
+  .expectJSON({
+    name: 'abc-123',
+    value: 'under review',
     color: 'lightgrey',
   })
 
 t.create('yellow status color')
-  .get('/https/issues.apache.org/test-001.json')
+  .get('/https/issues.apache.org/test-001.json?style=_shields_test')
   .intercept(nock =>
     nock('https://issues.apache.org/rest/api/2/issue')
       .get(`/${encodeURIComponent('test-001')}`)
@@ -89,14 +90,14 @@ t.create('yellow status color')
         },
       })
   )
-  .expectBadge({
-    label: 'test-001',
-    message: 'in progress',
+  .expectJSON({
+    name: 'test-001',
+    value: 'in progress',
     color: 'yellow',
   })
 
 t.create('brown status color')
-  .get('/https/issues.apache.org/zzz-789.json')
+  .get('/https/issues.apache.org/zzz-789.json?style=_shields_test')
   .intercept(nock =>
     nock('https://issues.apache.org/rest/api/2/issue')
       .get(`/${encodeURIComponent('zzz-789')}`)
@@ -111,14 +112,14 @@ t.create('brown status color')
         },
       })
   )
-  .expectBadge({
-    label: 'zzz-789',
-    message: 'muddy',
+  .expectJSON({
+    name: 'zzz-789',
+    value: 'muddy',
     color: 'orange',
   })
 
 t.create('warm-red status color')
-  .get('/https/issues.apache.org/fire-321.json')
+  .get('/https/issues.apache.org/fire-321.json?style=_shields_test')
   .intercept(nock =>
     nock('https://issues.apache.org/rest/api/2/issue')
       .get(`/${encodeURIComponent('fire-321')}`)
@@ -133,14 +134,14 @@ t.create('warm-red status color')
         },
       })
   )
-  .expectBadge({
-    label: 'fire-321',
-    message: 'heating up',
+  .expectJSON({
+    name: 'fire-321',
+    value: 'heating up',
     color: 'red',
   })
 
 t.create('blue-gray status color')
-  .get('/https/issues.apache.org/sky-775.json')
+  .get('/https/issues.apache.org/sky-775.json?style=_shields_test')
   .intercept(nock =>
     nock('https://issues.apache.org/rest/api/2/issue')
       .get(`/${encodeURIComponent('sky-775')}`)
@@ -155,8 +156,31 @@ t.create('blue-gray status color')
         },
       })
   )
-  .expectBadge({
-    label: 'sky-775',
-    message: 'cloudy',
+  .expectJSON({
+    name: 'sky-775',
+    value: 'cloudy',
     color: 'blue',
   })
+
+t.create('with mock credentials')
+  .before(mockJiraCreds)
+  .get('/https/myprivatejira.com/secure-234.json')
+  .intercept(nock =>
+    nock('https://myprivatejira.com/rest/api/2/issue')
+      .get(`/${encodeURIComponent('secure-234')}`)
+      // This ensures that the expected credentials from serverSecrets are actually being sent with the HTTP request.
+      // Without this the request wouldn't match and the test would fail.
+      .basicAuth({
+        user,
+        pass,
+      })
+      .reply(200, {
+        fields: {
+          status: {
+            name: 'in progress',
+          },
+        },
+      })
+  )
+  .finally(restore)
+  .expectJSON({ name: 'secure-234', value: 'in progress' })

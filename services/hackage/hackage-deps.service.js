@@ -14,6 +14,10 @@ module.exports = class HackageDeps extends BaseService {
     }
   }
 
+  static get defaultBadgeData() {
+    return { label: 'dependencies' }
+  }
+
   static get examples() {
     return [
       {
@@ -22,10 +26,6 @@ module.exports = class HackageDeps extends BaseService {
         staticPreview: this.render({ isOutdated: false }),
       },
     ]
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'dependencies' }
   }
 
   static render({ isOutdated }) {

@@ -1,15 +1,19 @@
 'use strict'
 
+const Joi = require('joi')
 const { isMetric } = require('../test-validators')
+
 const t = (module.exports = require('../tester').createServiceTester())
 
 t.create('clojars downloads (valid)')
   .get('/prismic.json')
-  .expectBadge({
-    label: 'downloads',
-    message: isMetric,
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'downloads',
+      value: isMetric,
+    })
+  )
 
 t.create('clojars downloads (not found)')
   .get('/not-a-package.json')
-  .expectBadge({ label: 'downloads', message: 'not found' })
+  .expectJSON({ name: 'downloads', value: 'not found' })

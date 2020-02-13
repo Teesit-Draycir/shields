@@ -1,27 +1,33 @@
 'use strict'
 
-const t = (module.exports = require('../tester').createServiceTester())
+const Joi = require('joi')
 const { codacyGrade } = require('./codacy-helpers')
 
+const t = (module.exports = require('../tester').createServiceTester())
+
 t.create('Code quality')
-  .get('/e27821fb6289410b8f58338c7e0bc686.json')
-  .expectBadge({
-    label: 'code quality',
-    message: codacyGrade,
-  })
+  .get('/grade/e27821fb6289410b8f58338c7e0bc686.json')
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'code quality',
+      value: codacyGrade,
+    })
+  )
 
 t.create('Code quality on branch')
-  .get('/e27821fb6289410b8f58338c7e0bc686/master.json')
-  .expectBadge({
-    label: 'code quality',
-    message: codacyGrade,
-  })
+  .get('/grade/e27821fb6289410b8f58338c7e0bc686/master.json')
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'code quality',
+      value: codacyGrade,
+    })
+  )
 
 t.create('Code quality (package not found)')
-  .get('/00000000000000000000000000000000/master.json')
-  .expectBadge({
-    label: 'code quality',
-    message: 'project or branch not found',
+  .get('/grade/00000000000000000000000000000000/master.json')
+  .expectJSON({
+    name: 'code quality',
+    value: 'project or branch not found',
   })
 
 // This is a known bug. The badge endpoint for a nonexistent branch returns
@@ -32,7 +38,7 @@ t.create('Code quality (package not found)')
 // https://api.codacy.com/project/badge/grade/e27821fb6289410b8f58338c7e0bc686?branch=foo
 // t.create('Code quality on branch (branch not found)')
 //   .get('/grade/e27821fb6289410b8f58338c7e0bc686/not-a-branch.json')
-//   .expectBadge({
-//       label: 'code quality',
-//       message: 'project or branch not found',
+//   .expectJSON({
+//       name: 'code quality',
+//       value: 'project or branch not found',
 //   })

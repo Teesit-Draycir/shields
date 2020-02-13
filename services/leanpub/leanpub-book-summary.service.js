@@ -1,6 +1,6 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const { BaseJsonService } = require('..')
 
 const bookSummarySchema = Joi.object({
@@ -9,16 +9,22 @@ const bookSummarySchema = Joi.object({
   total_copies_sold: Joi.number().required(),
 }).required()
 
+const keywords = ['leanpub']
+
 module.exports = class LeanpubBookSummaryService extends BaseJsonService {
-  static get category() {
-    return 'funding'
+  static render({ label, message }) {
+    return {
+      label,
+      message,
+    }
   }
 
-  static get route() {
-    return {
-      base: 'leanpub/book',
-      pattern: ':metric(pages|sold)/:book',
-    }
+  static get defaultBadgeData() {
+    return { color: 'blue', label: 'leanpub' }
+  }
+
+  static get category() {
+    return 'funding'
   }
 
   static get examples() {
@@ -30,6 +36,7 @@ module.exports = class LeanpubBookSummaryService extends BaseJsonService {
           book: 'juice-shop',
         },
         staticPreview: this.render({ label: 'pages', message: 226 }),
+        keywords,
       },
       {
         title: 'Leanpub Book Total Copies Sold',
@@ -38,18 +45,15 @@ module.exports = class LeanpubBookSummaryService extends BaseJsonService {
           book: 'juice-shop',
         },
         staticPreview: this.render({ label: 'sold', message: 2691 }),
+        keywords,
       },
     ]
   }
 
-  static get defaultBadgeData() {
-    return { color: 'blue', label: 'leanpub' }
-  }
-
-  static render({ label, message }) {
+  static get route() {
     return {
-      label,
-      message,
+      base: 'leanpub/book',
+      pattern: ':metric(pages|sold)/:book',
     }
   }
 

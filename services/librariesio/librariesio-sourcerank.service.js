@@ -1,40 +1,37 @@
 'use strict'
 
-const { colorScale } = require('../color-formatters')
-const { fetchProject } = require('./librariesio-common')
-const { BaseJsonService } = require('..')
+const { colorScale } = require('../../lib/color-formatters')
+const LibrariesIoBase = require('./librariesio-base')
 
 const sourceRankColor = colorScale([10, 15, 20, 25, 30])
 
-module.exports = class LibrariesIoSourcerank extends BaseJsonService {
+class LibrariesIoSourcerank extends LibrariesIoBase {
   static get category() {
     return 'rating'
-  }
-
-  static get route() {
-    return {
-      base: 'librariesio/sourcerank',
-      pattern: ':platform/:packageName',
-    }
-  }
-
-  static get examples() {
-    return [
-      {
-        title: 'Libraries.io SourceRank',
-        namedParams: {
-          platform: 'npm',
-          packageName: 'got',
-        },
-        staticPreview: this.render({ rank: 25 }),
-      },
-    ]
   }
 
   static get defaultBadgeData() {
     return {
       label: 'sourcerank',
     }
+  }
+
+  static get route() {
+    return this.buildRoute('librariesio/sourcerank')
+  }
+
+  static get examples() {
+    return [
+      {
+        title: 'Libraries.io SourceRank',
+        pattern: ':platform/:library',
+        namedParams: {
+          platform: 'npm',
+          library: 'got',
+        },
+        staticPreview: this.render({ rank: 25 }),
+      },
+    ]
   }
 
   static render({ rank }) {
@@ -45,10 +42,15 @@ module.exports = class LibrariesIoSourcerank extends BaseJsonService {
   }
 
   async handle({ platform, packageName }) {
-    const { rank } = await fetchProject(this, {
-      platform,
-      packageName,
-    })
+    const { rank } = await this.fetch(
+      {
+        platform,
+        packageName,
+      },
+      { allowPackages: true }
+    )
     return this.constructor.render({ rank })
   }
 }
+
+module.exports = LibrariesIoSourcerank

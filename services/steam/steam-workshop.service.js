@@ -1,11 +1,11 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const prettyBytes = require('pretty-bytes')
-const { metric, formatDate } = require('../text-formatters')
-const { age: ageColor, downloadCount } = require('../color-formatters')
-const BaseSteamAPI = require('./steam-base')
+const { metric, formatDate } = require('../../lib/text-formatters')
+const { age: ageColor, downloadCount } = require('../../lib/color-formatters')
 const { NotFound } = require('..')
+const BaseSteamAPI = require('./steam-base')
 
 const documentation = `
 <p>
@@ -121,36 +121,6 @@ const fileFoundOrNotSchema = Joi.alternatives(
 )
 
 class SteamCollectionSize extends BaseSteamAPI {
-  static get category() {
-    return 'other'
-  }
-
-  static get route() {
-    return {
-      base: 'steam/collection-files',
-      pattern: ':collectionId',
-    }
-  }
-
-  static get examples() {
-    return [
-      {
-        title: 'Steam Collection Files',
-        namedParams: { collectionId: '180077636' },
-        staticPreview: this.render({ size: 32 }),
-        documentation,
-      },
-    ]
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'files' }
-  }
-
-  static render({ size }) {
-    return { message: metric(size), color: 'brightgreen' }
-  }
-
   static get interf() {
     return 'ISteamRemoteStorage'
   }
@@ -161,6 +131,10 @@ class SteamCollectionSize extends BaseSteamAPI {
 
   static get version() {
     return '1'
+  }
+
+  static render({ size }) {
+    return { message: metric(size), color: 'brightgreen' }
   }
 
   async handle({ collectionId }) {
@@ -185,6 +159,32 @@ class SteamCollectionSize extends BaseSteamAPI {
       size: json.response.collectiondetails[0].children.length,
     })
   }
+
+  static get category() {
+    return 'other'
+  }
+
+  static get defaultBadgeData() {
+    return { label: 'files' }
+  }
+
+  static get route() {
+    return {
+      base: 'steam/collection-files',
+      pattern: ':collectionId',
+    }
+  }
+
+  static get examples() {
+    return [
+      {
+        title: 'Steam Collection Files',
+        namedParams: { collectionId: '180077636' },
+        staticPreview: this.render({ size: 32 }),
+        documentation,
+      },
+    ]
+  }
 }
 
 class SteamFileService extends BaseSteamAPI {
@@ -198,10 +198,6 @@ class SteamFileService extends BaseSteamAPI {
 
   static get version() {
     return '1'
-  }
-
-  async onRequest({ response }) {
-    throw new Error(`onRequest() wasn't implemented for ${this.name}`)
   }
 
   async handle({ fileId }) {
@@ -221,11 +217,27 @@ class SteamFileService extends BaseSteamAPI {
 
     return this.onRequest({ response: json.response.publishedfiledetails[0] })
   }
+
+  async onRequest({ response }) {
+    throw new Error(`onRequest() wasn't implemented for ${this.name}`)
+  }
 }
 
 class SteamFileSize extends SteamFileService {
+  static render({ fileSize }) {
+    return { message: prettyBytes(fileSize), color: 'brightgreen' }
+  }
+
+  async onRequest({ response }) {
+    return this.constructor.render({ fileSize: response.file_size })
+  }
+
   static get category() {
     return 'size'
+  }
+
+  static get defaultBadgeData() {
+    return { label: 'size' }
   }
 
   static get route() {
@@ -245,23 +257,20 @@ class SteamFileSize extends SteamFileService {
       },
     ]
   }
-
-  static get defaultBadgeData() {
-    return { label: 'size' }
-  }
-
-  static render({ fileSize }) {
-    return { message: prettyBytes(fileSize), color: 'brightgreen' }
-  }
-
-  async onRequest({ response }) {
-    return this.constructor.render({ fileSize: response.file_size })
-  }
 }
 
 class SteamFileReleaseDate extends SteamFileService {
-  static get category() {
-    return 'activity'
+  static render({ releaseDate }) {
+    return { message: formatDate(releaseDate), color: ageColor(releaseDate) }
+  }
+
+  async onRequest({ response }) {
+    const releaseDate = new Date(0).setUTCSeconds(response.time_created)
+    return this.constructor.render({ releaseDate })
+  }
+
+  static get defaultBadgeData() {
+    return { label: 'release date' }
   }
 
   static get route() {
@@ -284,21 +293,24 @@ class SteamFileReleaseDate extends SteamFileService {
     ]
   }
 
-  static get defaultBadgeData() {
-    return { label: 'release date' }
-  }
-
-  static render({ releaseDate }) {
-    return { message: formatDate(releaseDate), color: ageColor(releaseDate) }
-  }
-
-  async onRequest({ response }) {
-    const releaseDate = new Date(0).setUTCSeconds(response.time_created)
-    return this.constructor.render({ releaseDate })
+  static get category() {
+    return 'activity'
   }
 }
 
 class SteamFileSubscriptions extends SteamFileService {
+  static render({ subscriptions }) {
+    return { message: metric(subscriptions), color: 'brightgreen' }
+  }
+
+  async onRequest({ response }) {
+    return this.constructor.render({ subscriptions: response.subscriptions })
+  }
+
+  static get defaultBadgeData() {
+    return { label: 'subscriptions' }
+  }
+
   static get category() {
     return 'rating'
   }
@@ -320,21 +332,21 @@ class SteamFileSubscriptions extends SteamFileService {
       },
     ]
   }
-
-  static get defaultBadgeData() {
-    return { label: 'subscriptions' }
-  }
-
-  static render({ subscriptions }) {
-    return { message: metric(subscriptions), color: 'brightgreen' }
-  }
-
-  async onRequest({ response }) {
-    return this.constructor.render({ subscriptions: response.subscriptions })
-  }
 }
 
 class SteamFileFavorites extends SteamFileService {
+  static render({ favorites }) {
+    return { message: metric(favorites), color: 'brightgreen' }
+  }
+
+  async onRequest({ response }) {
+    return this.constructor.render({ favorites: response.favorited })
+  }
+
+  static get defaultBadgeData() {
+    return { label: 'favorites' }
+  }
+
   static get category() {
     return 'rating'
   }
@@ -356,23 +368,25 @@ class SteamFileFavorites extends SteamFileService {
       },
     ]
   }
-
-  static get defaultBadgeData() {
-    return { label: 'favorites' }
-  }
-
-  static render({ favorites }) {
-    return { message: metric(favorites), color: 'brightgreen' }
-  }
-
-  async onRequest({ response }) {
-    return this.constructor.render({ favorites: response.favorited })
-  }
 }
 
 class SteamFileDownloads extends SteamFileService {
+  static render({ downloads }) {
+    return { message: metric(downloads), color: downloadCount(downloads) }
+  }
+
+  async onRequest({ response }) {
+    return this.constructor.render({
+      downloads: response.lifetime_subscriptions,
+    })
+  }
+
   static get category() {
     return 'downloads'
+  }
+
+  static get defaultBadgeData() {
+    return { label: 'downloads' }
   }
 
   static get route() {
@@ -392,25 +406,19 @@ class SteamFileDownloads extends SteamFileService {
       },
     ]
   }
-
-  static get defaultBadgeData() {
-    return { label: 'downloads' }
-  }
-
-  static render({ downloads }) {
-    return { message: metric(downloads), color: downloadCount(downloads) }
-  }
-
-  async onRequest({ response }) {
-    return this.constructor.render({
-      downloads: response.lifetime_subscriptions,
-    })
-  }
 }
 
 class SteamFileViews extends SteamFileService {
-  static get category() {
-    return 'other'
+  static render({ views }) {
+    return { message: metric(views), color: 'brightgreen' }
+  }
+
+  async onRequest({ response }) {
+    return this.constructor.render({ views: response.views })
+  }
+
+  static get defaultBadgeData() {
+    return { label: 'views' }
   }
 
   static get route() {
@@ -431,16 +439,8 @@ class SteamFileViews extends SteamFileService {
     ]
   }
 
-  static get defaultBadgeData() {
-    return { label: 'views' }
-  }
-
-  static render({ views }) {
-    return { message: metric(views), color: 'brightgreen' }
-  }
-
-  async onRequest({ response }) {
-    return this.constructor.render({ views: response.views })
+  static get category() {
+    return 'other'
   }
 }
 

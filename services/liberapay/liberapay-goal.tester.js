@@ -1,18 +1,21 @@
 'use strict'
 
+const Joi = require('joi')
 const { isIntegerPercentage } = require('../test-validators')
 const t = (module.exports = require('../tester').createServiceTester())
 
 t.create('Goal Progress (valid)')
   .get('/Liberapay.json')
-  .expectBadge({
-    label: 'goal progress',
-    message: isIntegerPercentage,
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'goal progress',
+      value: isIntegerPercentage,
+    })
+  )
 
 t.create('Goal Progress (not found)')
   .get('/does-not-exist.json')
-  .expectBadge({ label: 'liberapay', message: 'not found' })
+  .expectJSON({ name: 'liberapay', value: 'not found' })
 
 t.create('Goal Progress (no goal set)')
   .get('/Liberapay.json')
@@ -26,4 +29,4 @@ t.create('Goal Progress (no goal set)')
         goal: null,
       })
   )
-  .expectBadge({ label: 'liberapay', message: 'no public goals' })
+  .expectJSON({ name: 'liberapay', value: 'no public goals' })

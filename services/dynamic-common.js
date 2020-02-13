@@ -1,8 +1,8 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const toArray = require('../core/base-service/to-array')
+const Joi = require('joi')
 const validate = require('../core/base-service/validate')
+const { toArray } = require('../lib/badge-data')
 const { InvalidResponse } = require('.')
 
 const errorMessages = {

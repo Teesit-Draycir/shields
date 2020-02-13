@@ -1,51 +1,52 @@
 'use strict'
 
-const { ServiceTester } = require('../tester')
+const Joi = require('joi')
 const { isDependencyState } = require('../test-validators')
-const t = (module.exports = new ServiceTester({
-  id: 'LibrariesIoDependencies',
-  title: 'LibrariesIoDependencies',
-  pathPrefix: '/librariesio',
-}))
 
-t.create('dependencies for package (project name contains dot)')
-  .get('/release/nuget/Newtonsoft.Json.json')
-  .expectBadge({
-    label: 'dependencies',
-    message: isDependencyState,
-  })
+const t = (module.exports = require('../tester').createServiceTester())
 
-t.create('dependencies for package with version')
+t.create('dependencies for releases')
   .get('/release/hex/phoenix/1.0.3.json')
-  .expectBadge({
-    label: 'dependencies',
-    message: isDependencyState,
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'dependencies',
+      value: isDependencyState,
+    })
+  )
 
-t.create('version not found')
-  .get('/release/hex/phoenix/9.9.99.json')
-  .expectBadge({
-    label: 'dependencies',
-    message: 'package or version not found',
-  })
+t.create('dependencies for releases (project name contains dot)')
+  .get('/release/nuget/Newtonsoft.Json.json')
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'dependencies',
+      value: isDependencyState,
+    })
+  )
 
-t.create('package not found')
-  .get('/release/hex/invalid/4.0.4.json')
-  .expectBadge({
-    label: 'dependencies',
-    message: 'package or version not found',
-  })
-
-t.create('dependencies for repo')
+t.create('dependencies for github')
   .get('/github/pyvesb/notepad4e.json')
-  .expectBadge({
-    label: 'dependencies',
-    message: isDependencyState,
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'dependencies',
+      value: isDependencyState,
+    })
+  )
+
+t.create('release not found')
+  .get('/release/hex/invalid/4.0.4.json')
+  .expectJSON({
+    name: 'dependencies',
+    value: 'not available',
   })
 
-t.create('repo not found')
-  .get('/github/foobar/is-not-a-repo.json')
-  .expectBadge({
-    label: 'dependencies',
-    message: 'repo not found',
+t.create('no response data')
+  .get('/github/phoenixframework/phoenix.json')
+  .intercept(nock =>
+    nock('https://libraries.io')
+      .get('/api/github/phoenixframework/phoenix/dependencies')
+      .reply(200)
+  )
+  .expectJSON({
+    name: 'dependencies',
+    value: 'invalid',
   })

@@ -1,101 +1,96 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { metric } = require('../text-formatters')
-const { nonNegativeInteger } = require('../validators')
+const Joi = require('joi')
+const { metric } = require('../../lib/text-formatters')
 const { BaseJsonService } = require('..')
+const { nonNegativeInteger } = require('../validators')
 
 // https://github.com/npm/registry/blob/master/docs/download-counts.md#output
 const pointResponseSchema = Joi.object({
   downloads: nonNegativeInteger,
 }).required()
 
-const intervalMap = {
-  dw: {
-    query: 'point/last-week',
-    schema: pointResponseSchema,
-    transform: json => json.downloads,
-    messageSuffix: '/week',
-  },
-  dm: {
-    query: 'point/last-month',
-    schema: pointResponseSchema,
-    transform: json => json.downloads,
-    messageSuffix: '/month',
-  },
-  dy: {
-    query: 'point/last-year',
-    schema: pointResponseSchema,
-    transform: json => json.downloads,
-    messageSuffix: '/year',
-  },
-  dt: {
-    query: 'range/1000-01-01:3000-01-01',
-    // https://github.com/npm/registry/blob/master/docs/download-counts.md#output-1
-    schema: Joi.object({
-      downloads: Joi.array()
-        .items(pointResponseSchema)
-        .required(),
-    }).required(),
-    transform: json =>
-      json.downloads
-        .map(item => item.downloads)
-        .reduce((accum, current) => accum + current),
-    messageSuffix: '',
-  },
-}
+// https://github.com/npm/registry/blob/master/docs/download-counts.md#output-1
+const rangeResponseSchema = Joi.object({
+  downloads: Joi.array()
+    .items(pointResponseSchema)
+    .required(),
+}).required()
 
-// This hits an entirely different API from the rest of the NPM services, so
-// it does not use NpmBase.
-module.exports = class NpmDownloads extends BaseJsonService {
-  static get category() {
-    return 'downloads'
-  }
+function DownloadsForInterval(interval) {
+  const { base, messageSuffix = '', query, isRange = false } = {
+    week: {
+      base: 'npm/dw',
+      messageSuffix: '/w',
+      query: 'point/last-week',
+    },
+    month: {
+      base: 'npm/dm',
+      messageSuffix: '/m',
+      query: 'point/last-month',
+    },
+    year: {
+      base: 'npm/dy',
+      messageSuffix: '/y',
+      query: 'point/last-year',
+    },
+    total: {
+      base: 'npm/dt',
+      query: 'range/1000-01-01:3000-01-01',
+      isRange: true,
+    },
+  }[interval]
 
-  static get route() {
-    return {
-      base: 'npm',
-      pattern: ':interval(dw|dm|dy|dt)/:scope(@.+)?/:packageName',
+  const schema = isRange ? rangeResponseSchema : pointResponseSchema
+
+  // This hits an entirely different API from the rest of the NPM services, so
+  // it does not use NpmBase.
+  return class NpmDownloads extends BaseJsonService {
+    static get category() {
+      return 'downloads'
+    }
+
+    static get route() {
+      return {
+        base,
+        pattern: ':scope(@.+)?/:packageName',
+      }
+    }
+
+    static get examples() {
+      return [
+        {
+          title: 'npm',
+          pattern: ':packageName',
+          namedParams: { packageName: 'localeval' },
+          staticPreview: this.render({ downloads: 30000 }),
+          keywords: ['node'],
+        },
+      ]
+    }
+
+    static render({ downloads }) {
+      return {
+        message: `${metric(downloads)}${messageSuffix}`,
+        color: downloads > 0 ? 'brightgreen' : 'red',
+      }
+    }
+
+    async handle({ scope, packageName }) {
+      const slug = scope ? `${scope}/${packageName}` : packageName
+      let { downloads } = await this._requestJson({
+        schema,
+        url: `https://api.npmjs.org/downloads/${query}/${slug}`,
+        errorMessages: { 404: 'package not found or too new' },
+      })
+      if (isRange) {
+        downloads = downloads
+          .map(item => item.downloads)
+          .reduce((accum, current) => accum + current)
+      }
+      return this.constructor.render({ downloads })
     }
   }
-
-  static get examples() {
-    return [
-      {
-        title: 'npm',
-        namedParams: { interval: 'dw', packageName: 'localeval' },
-        staticPreview: this.render({ interval: 'dw', downloadCount: 30000 }),
-        keywords: ['node'],
-      },
-    ]
-  }
-
-  // For testing.
-  static get _intervalMap() {
-    return intervalMap
-  }
-
-  static render({ interval, downloadCount }) {
-    const { messageSuffix } = intervalMap[interval]
-
-    return {
-      message: `${metric(downloadCount)}${messageSuffix}`,
-      color: downloadCount > 0 ? 'brightgreen' : 'red',
-    }
-  }
-
-  async handle({ interval, scope, packageName }) {
-    const { query, schema, transform } = intervalMap[interval]
-
-    const slug = scope ? `${scope}/${packageName}` : packageName
-    const json = await this._requestJson({
-      schema,
-      url: `https://api.npmjs.org/downloads/${query}/${slug}`,
-      errorMessages: { 404: 'package not found or too new' },
-    })
-
-    const downloadCount = transform(json)
-
-    return this.constructor.render({ interval, downloadCount })
-  }
 }
+
+module.exports = ['week', 'month', 'year', 'total'].map(DownloadsForInterval)

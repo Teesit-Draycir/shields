@@ -1,11 +1,11 @@
 'use strict'
 
 const { URL } = require('url')
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
+const { BaseJsonService, InvalidParameter } = require('..')
 const { errorMessages } = require('../dynamic-common')
 const { optionalUrl } = require('../validators')
 const { fetchEndpointData } = require('../endpoint-common')
-const { BaseJsonService, InvalidParameter } = require('..')
 
 const blockedDomains = ['github.com', 'shields.io']
 
@@ -20,9 +20,9 @@ module.exports = class Endpoint extends BaseJsonService {
 
   static get route() {
     return {
-      base: 'endpoint',
+      base: 'badge/endpoint',
       pattern: '',
-      queryParamSchema,
+      queryParams: ['url'],
     }
   }
 
@@ -66,7 +66,12 @@ module.exports = class Endpoint extends BaseJsonService {
     }
   }
 
-  async handle(namedParams, { url }) {
+  async handle(namedParams, queryParams) {
+    const { url } = this.constructor._validateQueryParams(
+      queryParams,
+      queryParamSchema
+    )
+
     const { protocol, hostname } = new URL(url)
     if (protocol !== 'https:') {
       throw new InvalidParameter({ prettyMessage: 'please use https' })

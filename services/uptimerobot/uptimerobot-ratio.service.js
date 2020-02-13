@@ -1,11 +1,17 @@
 'use strict'
 
-const { colorScale } = require('../color-formatters')
+const { colorScale } = require('../../lib/color-formatters')
 const UptimeRobotBase = require('./uptimerobot-base')
 
 const ratioColor = colorScale([10, 30, 50, 70])
 
 module.exports = class UptimeRobotRatio extends UptimeRobotBase {
+  static get defaultBadgeData() {
+    return {
+      label: 'uptime',
+    }
+  }
+
   static get route() {
     return {
       base: 'uptimerobot/ratio',
@@ -32,12 +38,6 @@ module.exports = class UptimeRobotRatio extends UptimeRobotBase {
         staticPreview: this.render({ ratio: 100 }),
       },
     ]
-  }
-
-  static get defaultBadgeData() {
-    return {
-      label: 'uptime',
-    }
   }
 
   static render({ ratio }) {

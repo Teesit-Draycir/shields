@@ -1,6 +1,6 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const { BaseJsonService } = require('..')
 
 const resourceSchema = Joi.object({
@@ -24,14 +24,22 @@ const keywords = ['spigot', 'spigotmc']
 
 class BaseSpigetService extends BaseJsonService {
   async fetch({
-    resourceId,
+    resourceid,
     schema = resourceSchema,
-    url = `https://api.spiget.org/v2/resources/${resourceId}`,
+    url = `https://api.spiget.org/v2/resources/${resourceid}`,
   }) {
     return this._requestJson({
       schema,
       url,
     })
+  }
+
+  static get defaultBadgeData() {
+    return { label: 'spiget' }
+  }
+
+  static get category() {
+    return 'other'
   }
 }
 

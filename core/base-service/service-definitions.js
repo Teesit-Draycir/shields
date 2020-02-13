@@ -1,9 +1,6 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-
-// This should be kept in sync with the schema in
-// `frontend/lib/service-definitions/service-definition-prop-types.js`.
+const Joi = require('joi')
 
 const arrayOfStrings = Joi.array()
   .items(Joi.string())

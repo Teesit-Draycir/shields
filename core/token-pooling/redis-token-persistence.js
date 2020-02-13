@@ -1,11 +1,11 @@
 'use strict'
 
-const { URL } = require('url')
-const Redis = require('ioredis')
+const redis = require('redis')
+const { promisify } = require('util')
 const log = require('../server/log')
 const TokenPersistence = require('./token-persistence')
 
-module.exports = class RedisTokenPersistence extends TokenPersistence {
+class RedisTokenPersistence extends TokenPersistence {
   constructor({ url, key }) {
     super()
     this.url = url
@@ -13,31 +13,31 @@ module.exports = class RedisTokenPersistence extends TokenPersistence {
   }
 
   async initialize() {
-    const options =
-      this.url && this.url.startsWith('rediss:')
-        ? {
-            //  https://www.compose.com/articles/ssl-connections-arrive-for-redis-on-compose/
-            tls: { servername: new URL(this.url).hostname },
-          }
-        : undefined
-    this.redis = new Redis(this.url, options)
-    this.redis.on('error', e => {
+    this.client = redis.createClient(this.url)
+    this.client.on('error', e => {
       log.error(e)
     })
 
-    const tokens = await this.redis.smembers(this.key)
+    const lrange = promisify(this.client.lrange).bind(this.client)
+
+    const tokens = await lrange(this.key, 0, -1)
     return tokens
   }
 
   async stop() {
-    await this.redis.quit()
+    const quit = promisify(this.client.quit).bind(this.client)
+    await quit()
   }
 
   async onTokenAdded(token) {
-    await this.redis.sadd(this.key, token)
+    const rpush = promisify(this.client.rpush).bind(this.client)
+    await rpush(this.key, token)
   }
 
   async onTokenRemoved(token) {
-    await this.redis.srem(this.key, token)
+    const lrem = promisify(this.client.lrem).bind(this.client)
+    await lrem(this.key, 0, token)
   }
 }
+
+module.exports = RedisTokenPersistence

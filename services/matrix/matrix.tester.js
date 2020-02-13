@@ -1,10 +1,11 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
+
 const t = (module.exports = require('../tester').createServiceTester())
 
 t.create('get room state as guest')
-  .get('/ALIAS:DUMMY.dumb.json')
+  .get('/ALIAS:DUMMY.dumb.json?style=_shields_test')
   .intercept(nock =>
     nock('https://DUMMY.dumb/')
       .post('/_matrix/client/r0/register?kind=guest')
@@ -68,14 +69,14 @@ t.create('get room state as guest')
         ])
       )
   )
-  .expectBadge({
-    label: 'chat',
-    message: '2 users',
+  .expectJSON({
+    name: 'chat',
+    value: '2 users',
     color: 'brightgreen',
   })
 
 t.create('get room state as member (backup method)')
-  .get('/ALIAS:DUMMY.dumb.json')
+  .get('/ALIAS:DUMMY.dumb.json?style=_shields_test')
   .intercept(nock =>
     nock('https://DUMMY.dumb/')
       .post('/_matrix/client/r0/register?kind=guest')
@@ -147,23 +148,23 @@ t.create('get room state as member (backup method)')
         ])
       )
   )
-  .expectBadge({
-    label: 'chat',
-    message: '2 users',
+  .expectJSON({
+    name: 'chat',
+    value: '2 users',
     color: 'brightgreen',
   })
 
 t.create('bad server or connection')
-  .get('/ALIAS:DUMMY.dumb.json')
+  .get('/ALIAS:DUMMY.dumb.json?style=_shields_test')
   .networkOff()
-  .expectBadge({
-    label: 'chat',
-    message: 'inaccessible',
-    color: 'lightgrey',
+  .expectJSON({
+    name: 'chat',
+    value: 'inaccessible',
+    color: 'lightgray',
   })
 
 t.create('non-world readable room')
-  .get('/ALIAS:DUMMY.dumb.json')
+  .get('/ALIAS:DUMMY.dumb.json?style=_shields_test')
   .intercept(nock =>
     nock('https://DUMMY.dumb/')
       .post('/_matrix/client/r0/register?kind=guest')
@@ -193,14 +194,14 @@ t.create('non-world readable room')
         })
       )
   )
-  .expectBadge({
-    label: 'chat',
-    message: 'room not world readable or is invalid',
-    color: 'lightgrey',
+  .expectJSON({
+    name: 'chat',
+    value: 'room not world readable or is invalid',
+    color: 'lightgray',
   })
 
 t.create('invalid token')
-  .get('/ALIAS:DUMMY.dumb.json')
+  .get('/ALIAS:DUMMY.dumb.json?style=_shields_test')
   .intercept(nock =>
     nock('https://DUMMY.dumb/')
       .post('/_matrix/client/r0/register?kind=guest')
@@ -221,14 +222,14 @@ t.create('invalid token')
         })
       )
   )
-  .expectBadge({
-    label: 'chat',
-    message: 'bad auth token',
-    color: 'lightgrey',
+  .expectJSON({
+    name: 'chat',
+    value: 'bad auth token',
+    color: 'lightgray',
   })
 
 t.create('unknown request')
-  .get('/ALIAS:DUMMY.dumb.json')
+  .get('/ALIAS:DUMMY.dumb.json?style=_shields_test')
   .intercept(nock =>
     nock('https://DUMMY.dumb/')
       .post('/_matrix/client/r0/register?kind=guest')
@@ -258,14 +259,14 @@ t.create('unknown request')
         })
       )
   )
-  .expectBadge({
-    label: 'chat',
-    message: 'unknown request',
-    color: 'lightgrey',
+  .expectJSON({
+    name: 'chat',
+    value: 'unknown request',
+    color: 'lightgray',
   })
 
 t.create('unknown alias')
-  .get('/ALIAS:DUMMY.dumb.json')
+  .get('/ALIAS:DUMMY.dumb.json?style=_shields_test')
   .intercept(nock =>
     nock('https://DUMMY.dumb/')
       .post('/_matrix/client/r0/register?kind=guest')
@@ -286,22 +287,22 @@ t.create('unknown alias')
         })
       )
   )
-  .expectBadge({
-    label: 'chat',
-    message: 'room not found',
+  .expectJSON({
+    name: 'chat',
+    value: 'room not found',
     color: 'red',
   })
 
 t.create('invalid alias')
-  .get('/ALIASDUMMY.dumb.json')
-  .expectBadge({
-    label: 'chat',
-    message: 'invalid alias',
+  .get('/ALIASDUMMY.dumb.json?style=_shields_test')
+  .expectJSON({
+    name: 'chat',
+    value: 'invalid alias',
     color: 'red',
   })
 
 t.create('server uses a custom port')
-  .get('/ALIAS:DUMMY.dumb:5555.json')
+  .get('/ALIAS:DUMMY.dumb:5555.json?style=_shields_test')
   .intercept(nock =>
     nock('https://DUMMY.dumb:5555/')
       .post('/_matrix/client/r0/register?kind=guest')
@@ -365,14 +366,16 @@ t.create('server uses a custom port')
         ])
       )
   )
-  .expectBadge({
-    label: 'chat',
-    message: '2 users',
+  .expectJSON({
+    name: 'chat',
+    value: '2 users',
     color: 'brightgreen',
   })
 
 t.create('specify the homeserver fqdn')
-  .get('/ALIAS:DUMMY.dumb.json?server_fqdn=matrix.DUMMY.dumb')
+  .get(
+    '/ALIAS:DUMMY.dumb.json?style=_shields_test&server_fqdn=matrix.DUMMY.dumb'
+  )
   .intercept(nock =>
     nock('https://matrix.DUMMY.dumb/')
       .post('/_matrix/client/r0/register?kind=guest')
@@ -436,17 +439,19 @@ t.create('specify the homeserver fqdn')
         ])
       )
   )
-  .expectBadge({
-    label: 'chat',
-    message: '2 users',
+  .expectJSON({
+    name: 'chat',
+    value: '2 users',
     color: 'brightgreen',
   })
 
 t.create('test on real matrix room for API compliance')
-  .get('/twim:matrix.org.json')
+  .get('/twim:matrix.org.json?style=_shields_test')
   .timeout(10000)
-  .expectBadge({
-    label: 'chat',
-    message: Joi.string().regex(/^[0-9]+ users$/),
-    color: 'brightgreen',
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'chat',
+      value: Joi.string().regex(/^[0-9]+ users$/),
+      color: 'brightgreen',
+    })
+  )

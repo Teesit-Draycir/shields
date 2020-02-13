@@ -1,15 +1,49 @@
 'use strict'
 
-const { addv } = require('../text-formatters')
-const { version: versionColor } = require('../color-formatters')
+const semver = require('semver')
+const Joi = require('joi')
+const { addv } = require('../../lib/text-formatters')
+const { version: versionColor } = require('../../lib/color-formatters')
+const { NotFound } = require('..')
 const BaseWordpress = require('./wordpress-base')
-const { versionColorForWordpressVersion } = require('./wordpress-version-color')
 
-class WordpressPluginRequiresVersion extends BaseWordpress {
+const coreSchema = Joi.object()
+  .keys({
+    offers: Joi.array()
+      .items(
+        Joi.object()
+          .keys({
+            version: Joi.string()
+              .regex(/^\d+(\.\d+)?(\.\d+)?$/)
+              .required(),
+          })
+          .required()
+      )
+      .required(),
+  })
+  .required()
+
+class BaseWordpressPlatform extends BaseWordpress {
+  static get defaultBadgeData() {
+    return { label: 'wordpress' }
+  }
+  static get extensionType() {
+    return 'plugin'
+  }
+
+  static render({ response }) {
+    return {
+      message: addv(response.requires),
+      color: versionColor(response.requires),
+    }
+  }
+
   static get category() {
     return 'platform-support'
   }
+}
 
+class WordpressPluginRequiresVersion extends BaseWordpressPlatform {
   static get route() {
     return {
       base: `wordpress/plugin/wp-version`,
@@ -20,36 +54,61 @@ class WordpressPluginRequiresVersion extends BaseWordpress {
   static get examples() {
     return [
       {
-        title: 'WordPress Plugin: Required WP Version',
+        title: 'Wordpress Plugin: Required WP Version',
         namedParams: { slug: 'bbpress' },
-        staticPreview: this.render({ wordpressVersion: '4.8' }),
+        staticPreview: this.render({ response: { requires: '4.8' } }),
       },
     ]
   }
+}
 
-  static get defaultBadgeData() {
-    return { label: 'wordpress' }
-  }
-
-  static render({ wordpressVersion }) {
+class WordpressPluginTestedVersion extends BaseWordpressPlatform {
+  static render({ version, color }) {
     return {
-      message: addv(wordpressVersion),
-      color: versionColor(wordpressVersion),
+      message: `${addv(version)} tested`,
+      color,
     }
   }
 
-  async handle({ slug }) {
-    const { requires: wordpressVersion } = await this.fetch({
-      extensionType: 'plugin',
-      slug,
+  async fetchCore() {
+    const coreURL = 'https://api.wordpress.org/core/version-check/1.7/'
+    return this._requestJson({
+      url: coreURL,
+      schema: coreSchema,
     })
-    return this.constructor.render({ wordpressVersion })
   }
-}
 
-class WordpressPluginTestedVersion extends BaseWordpress {
-  static get category() {
-    return 'platform-support'
+  async handle({ slug }) {
+    const json = await this.fetch({ slug })
+    const core = await this.fetchCore()
+
+    if (!json || !core) {
+      throw new NotFound()
+    }
+
+    //Copy & Paste old color formatting code.
+    const versions = core.offers.map(v => v.version)
+    let testedVersion = json.tested
+    let color = ''
+    const svTestedVersion =
+      testedVersion.split('.').length === 2
+        ? (testedVersion += '.0')
+        : testedVersion
+    const svVersion =
+      versions[0].split('.').length === 2 ? (versions[0] += '.0') : versions[0]
+
+    if (
+      testedVersion === versions[0] ||
+      semver.gtr(svTestedVersion, svVersion)
+    ) {
+      color = 'brightgreen'
+    } else if (versions.indexOf(testedVersion) !== -1) {
+      color = 'orange'
+    } else {
+      color = 'yellow'
+    }
+
+    return this.constructor.render({ version: testedVersion, color })
   }
 
   static get route() {
@@ -62,48 +121,31 @@ class WordpressPluginTestedVersion extends BaseWordpress {
   static get examples() {
     return [
       {
-        title: 'WordPress Plugin: Tested WP Version',
+        title: 'Wordpress Plugin: Tested WP Version',
         namedParams: { slug: 'bbpress' },
-        staticPreview: this.renderStaticPreview({
-          testedVersion: '4.9.8',
-        }),
+        staticPreview: this.render({ version: '4.9.8', color: 'brightgreen' }),
+        documentation: `<p>There is an alias for this badge. <code>wordpress/v/:slug.svg</code></p>`,
       },
     ]
   }
+}
 
-  static get defaultBadgeData() {
-    return { label: 'wordpress' }
-  }
-
-  static renderStaticPreview({ testedVersion }) {
-    // Since this badge has an async `render()` function, but `get examples()` has to
-    // be synchronous, this method exists. It should return the same value as the
-    // real `render()`.
+class WordpressPluginTestedVersionAlias extends WordpressPluginTestedVersion {
+  static get route() {
     return {
-      message: `${addv(testedVersion)} tested`,
-      color: 'brightgreen',
+      base: `wordpress/v`,
+      pattern: ':slug',
     }
   }
 
-  static async render({ testedVersion }) {
-    // Atypically, the `render()` function of this badge is `async` because it needs to pull
-    // data from the server.
-    return {
-      message: `${addv(testedVersion)} tested`,
-      color: await versionColorForWordpressVersion(testedVersion),
-    }
-  }
-
-  async handle({ slug }) {
-    const { tested: testedVersion } = await this.fetch({
-      extensionType: 'plugin',
-      slug,
-    })
-    return this.constructor.render({ testedVersion })
+  //The alias is documented in the above class.
+  static get examples() {
+    return []
   }
 }
 
 module.exports = {
   WordpressPluginRequiresVersion,
   WordpressPluginTestedVersion,
+  WordpressPluginTestedVersionAlias,
 }

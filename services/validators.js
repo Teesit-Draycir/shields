@@ -1,15 +1,12 @@
 'use strict'
 
-const Joi = require('@hapi/joi').extend(require('joi-extension-semver'))
-
-const optionalNonNegativeInteger = Joi.number()
-  .integer()
-  .min(0)
+const Joi = require('joi').extend(require('joi-extension-semver'))
 
 module.exports = {
-  optionalNonNegativeInteger,
-
-  nonNegativeInteger: optionalNonNegativeInteger.required(),
+  nonNegativeInteger: Joi.number()
+    .integer()
+    .min(0)
+    .required(),
 
   anyInteger: Joi.number()
     .integer()
@@ -24,7 +21,7 @@ module.exports = {
     .required(),
 
   optionalDottedVersionNClausesWithOptionalSuffix: Joi.string().regex(
-    /^\d+(\.\d+)*([-+].*)?$/
+    /^\d+(\.\d+)*(-.*)?$/
   ),
 
   // TODO This accepts URLs with query strings and fragments, which for some

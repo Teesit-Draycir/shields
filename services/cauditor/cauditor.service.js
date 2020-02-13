@@ -6,8 +6,7 @@ module.exports = deprecatedService({
   category: 'other',
   route: {
     base: 'cauditor',
-    pattern: ':various*',
+    format: '(?:mi|ccn|npath|hi|i|ca|ce|dit)/(?:[^/]+)/(?:[^/]+)/(?:.+)',
   },
   label: 'cauditor',
-  dateAdded: new Date('2018-02-15'),
 })

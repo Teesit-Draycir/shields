@@ -1,45 +1,21 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { version: versionColor } = require('../color-formatters')
-const { BaseClojarsService } = require('./clojars-base')
-const { redirector } = require('..')
+const Joi = require('joi')
+const { version: versionColor } = require('../../lib/color-formatters')
+const { BaseJsonService, NotFound } = require('..')
 
-const queryParamSchema = Joi.object({
-  include_prereleases: Joi.equal(''),
+const clojarsSchema = Joi.object({
+  // optional due to non-standard 'not found' condition
+  version: Joi.string(),
 }).required()
 
-class ClojarsVersionService extends BaseClojarsService {
-  static get category() {
-    return 'version'
-  }
-
-  static get route() {
-    return {
-      base: 'clojars/v',
-      pattern: ':clojar+',
-      queryParamSchema,
-    }
-  }
-
-  static get examples() {
-    return [
-      {
-        title: 'Clojars Version',
-        namedParams: { clojar: 'prismic' },
-        staticPreview: this.render({ clojar: 'clojar', version: '1.2' }),
-      },
-      {
-        title: 'Clojars Version (including pre-releases)',
-        namedParams: { clojar: 'prismic' },
-        queryParams: { include_prereleases: null },
-        staticPreview: this.render({ clojar: 'clojar', version: '1.2' }),
-      },
-    ]
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'clojars' }
+module.exports = class Clojars extends BaseJsonService {
+  async fetch({ clojar }) {
+    const url = `https://clojars.org/${clojar}/latest-version.json`
+    return this._requestJson({
+      url,
+      schema: clojarsSchema,
+    })
   }
 
   static render({ clojar, version }) {
@@ -49,31 +25,40 @@ class ClojarsVersionService extends BaseClojarsService {
     }
   }
 
-  async handle({ clojar }, queryParams) {
+  async handle({ clojar }) {
     const json = await this.fetch({ clojar })
-    const includePrereleases = queryParams.include_prereleases !== undefined
 
-    if (includePrereleases) {
-      return this.constructor.render({ clojar, version: json.latest_version })
+    if (Object.keys(json).length === 0) {
+      /* Note the 'not found' response from clojars is:
+          status code = 200, body = {} */
+      throw new NotFound()
     }
-    return this.constructor.render({
-      clojar,
-      version: json.latest_release ? json.latest_release : json.latest_version,
-    })
+
+    return this.constructor.render({ clojar, version: json.version })
+  }
+
+  // Metadata
+  static get defaultBadgeData() {
+    return { label: 'clojars' }
+  }
+
+  static get category() {
+    return 'version'
+  }
+
+  static get route() {
+    return {
+      base: 'clojars/v',
+      pattern: ':clojar+',
+    }
+  }
+
+  static get examples() {
+    return [
+      {
+        namedParams: { clojar: 'prismic' },
+        staticPreview: this.render({ clojar: 'clojar', version: '1.2' }),
+      },
+    ]
   }
 }
-
-const ClojarsVersionRedirector = redirector({
-  category: 'version',
-  route: {
-    base: 'clojars/vpre',
-    pattern: ':clojar',
-  },
-  transformPath: ({ clojar }) => `/clojars/v/${clojar}`,
-  transformQueryParams: params => ({
-    include_prereleases: null,
-  }),
-  dateAdded: new Date('2019-12-15'),
-})
-
-module.exports = { ClojarsVersionService, ClojarsVersionRedirector }

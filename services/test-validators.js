@@ -1,6 +1,6 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const { semver: isSemver } = require('./validators')
 
 /*
@@ -21,15 +21,9 @@ const isVPlusDottedVersionNClauses = withRegex(/^v\d+(\.\d+)*$/)
 
 // matches a version number with N 'clauses'
 // and an optional text suffix
-// e.g: -beta, -preview1, -release-candidate, +beta, ~pre9-12 etc
+// e.g: -beta, -preview1, -release-candidate etc
 const isVPlusDottedVersionNClausesWithOptionalSuffix = withRegex(
-  /^v\d+(\.\d+)*([-+~].*)?$/
-)
-
-// same as above, but also accepts an optional 'epoch' prefix that can be
-// found e.g. in distro package versions, like 4:6.3.0-4
-const isVPlusDottedVersionNClausesWithOptionalSuffixAndEpoch = withRegex(
-  /^v(\d+:)?\d+(\.\d+)*([-+~].*)?$/
+  /^v\d+(\.\d+)*(-.*)?$/
 )
 
 // Simple regex for test Composer versions rule
@@ -62,14 +56,12 @@ const isStarRating = withRegex(
 )
 
 // Required to be > 0, because accepting zero masks many problems.
-const isMetric = withRegex(/^([1-9][0-9]*[kMGTPEZY]?|[1-9]\.[1-9][kMGTPEZY])$/)
+const isMetric = withRegex(/^[1-9][0-9]*[kMGTPEZY]?$/)
 
-const isMetricOpenIssues = withRegex(
-  /^([1-9][0-9]*[kMGTPEZY]?|[1-9]\.[1-9][kMGTPEZY]) open$/
-)
+const isMetricOpenIssues = withRegex(/^[1-9][0-9]*[kMGTPEZY]? open$/)
 
 const isMetricOverTimePeriod = withRegex(
-  /^([1-9][0-9]*[kMGTPEZY]?|[1-9]\.[1-9][kMGTPEZY])\/(year|month|four weeks|week|day)$/
+  /^[1-9][0-9]*[kMGTPEZY]?\/(year|month|four weeks|week|day)$/
 )
 
 const isIntegerPercentage = withRegex(/^[1-9][0-9]?%|^100%|^0%$/)
@@ -99,46 +91,12 @@ const isDependencyState = withRegex(
   /^(\d+ out of date|\d+ deprecated|up to date)$/
 )
 
-const makeTestTotalsValidator = ({ passed, failed, skipped }) =>
-  withRegex(
-    new RegExp(`^[0-9]+ ${passed}(, [0-9]+ ${failed})?(, [0-9]+ ${skipped})?$`)
-  )
-
-const makeCompactTestTotalsValidator = ({ passed, failed, skipped }) =>
-  withRegex(
-    new RegExp(
-      `^${passed} [0-9]+( \\| ${failed} [0-9]+)?( \\| ${skipped} [0-9]+)?$`
-    )
-  )
-
-const isDefaultTestTotals = makeTestTotalsValidator({
-  passed: 'passed',
-  failed: 'failed',
-  skipped: 'skipped',
-})
-const isDefaultCompactTestTotals = makeCompactTestTotalsValidator({
-  passed: '✔',
-  failed: '✘',
-  skipped: '➟',
-})
-const isCustomTestTotals = makeTestTotalsValidator({
-  passed: 'good',
-  failed: 'bad',
-  skipped: 'n/a',
-})
-const isCustomCompactTestTotals = makeCompactTestTotalsValidator({
-  passed: '💃',
-  failed: '🤦‍♀️',
-  skipped: '🤷',
-})
-
 module.exports = {
   isSemver,
   isVPlusTripleDottedVersion,
   isVPlusDottedVersionAtLeastOne,
   isVPlusDottedVersionNClauses,
   isVPlusDottedVersionNClausesWithOptionalSuffix,
-  isVPlusDottedVersionNClausesWithOptionalSuffixAndEpoch,
   isComposerVersion,
   isPhpVersionReduction,
   isStarRating,
@@ -153,10 +111,4 @@ module.exports = {
   isRelativeFormattedDate,
   isDependencyState,
   withRegex,
-  isDefaultTestTotals,
-  isDefaultCompactTestTotals,
-  isCustomTestTotals,
-  isCustomCompactTestTotals,
-  makeTestTotalsValidator,
-  makeCompactTestTotalsValidator,
 }

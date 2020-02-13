@@ -10,6 +10,10 @@ module.exports = class NodeVersion extends NPMBase {
     return 'platform-support'
   }
 
+  static get defaultBadgeData() {
+    return { label: 'node' }
+  }
+
   static get route() {
     return this.buildRoute('node/v', { withTag: true })
   }
@@ -20,7 +24,7 @@ module.exports = class NodeVersion extends NPMBase {
         title: 'node',
         pattern: ':packageName',
         namedParams: { packageName: 'passport' },
-        staticPreview: this.renderStaticPreview({
+        staticPreview: this.renderStaticExample({
           nodeVersionRange: '>= 6.0.0',
         }),
         keywords,
@@ -29,7 +33,7 @@ module.exports = class NodeVersion extends NPMBase {
         title: 'node (scoped)',
         pattern: '@:scope/:packageName',
         namedParams: { scope: 'stdlib', packageName: 'stdlib' },
-        staticPreview: this.renderStaticPreview({
+        staticPreview: this.renderStaticExample({
           nodeVersionRange: '>= 6.0.0',
         }),
         keywords,
@@ -38,7 +42,7 @@ module.exports = class NodeVersion extends NPMBase {
         title: 'node (tag)',
         pattern: ':packageName/:tag',
         namedParams: { packageName: 'passport', tag: 'latest' },
-        staticPreview: this.renderStaticPreview({
+        staticPreview: this.renderStaticExample({
           nodeVersionRange: '>= 6.0.0',
           tag: 'latest',
         }),
@@ -48,7 +52,7 @@ module.exports = class NodeVersion extends NPMBase {
         title: 'node (scoped with tag)',
         pattern: '@:scope/:packageName/:tag',
         namedParams: { scope: 'stdlib', packageName: 'stdlib', tag: 'latest' },
-        staticPreview: this.renderStaticPreview({
+        staticPreview: this.renderStaticExample({
           nodeVersionRange: '>= 6.0.0',
           tag: 'latest',
         }),
@@ -59,7 +63,7 @@ module.exports = class NodeVersion extends NPMBase {
         pattern: '@:scope/:packageName/:tag',
         namedParams: { scope: 'stdlib', packageName: 'stdlib', tag: 'latest' },
         queryParams: { registry_uri: 'https://registry.npmjs.com' },
-        staticPreview: this.renderStaticPreview({
+        staticPreview: this.renderStaticExample({
           nodeVersionRange: '>= 6.0.0',
           tag: 'latest',
         }),
@@ -68,11 +72,7 @@ module.exports = class NodeVersion extends NPMBase {
     ]
   }
 
-  static get defaultBadgeData() {
-    return { label: 'node' }
-  }
-
-  static renderStaticPreview({ tag, nodeVersionRange }) {
+  static renderStaticExample({ tag, nodeVersionRange }) {
     // Since this badge has an async `render()` function, but `get examples()` has to
     // be synchronous, this method exists. It should return the same value as the
     // real `render()`. There's a unit test to check that.

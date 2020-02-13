@@ -1,20 +1,25 @@
 'use strict'
 
-const sprintId = 8
-const sprintQueryString = {
-  jql: `sprint=${sprintId} AND type IN (Bug,Improvement,Story,"Technical task")`,
-  fields: 'resolution',
-  maxResults: 500,
-}
+const sinon = require('sinon')
+const serverSecrets = require('../../lib/server-secrets')
 
 const user = 'admin'
 const pass = 'password'
-const config = { private: { jira_user: user, jira_pass: pass } }
+
+function mockJiraCreds() {
+  serverSecrets['jira_user'] = undefined
+  serverSecrets['jira_pass'] = undefined
+  sinon.stub(serverSecrets, 'jira_user').value(user)
+  sinon.stub(serverSecrets, 'jira_pass').value(pass)
+}
+
+function restore() {
+  sinon.restore()
+}
 
 module.exports = {
-  sprintId,
-  sprintQueryString,
   user,
   pass,
-  config,
+  mockJiraCreds,
+  restore,
 }

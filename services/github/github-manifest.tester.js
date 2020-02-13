@@ -1,6 +1,6 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const { ServiceTester } = require('../tester')
 const { isVPlusDottedVersionAtLeastOne } = require('../test-validators')
 
@@ -12,29 +12,33 @@ const t = (module.exports = new ServiceTester({
 
 t.create('Manifest version')
   .get('/v/RedSparr0w/IndieGala-Helper.json')
-  .expectBadge({
-    label: 'version',
-    message: isVPlusDottedVersionAtLeastOne,
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'version',
+      value: isVPlusDottedVersionAtLeastOne,
+    })
+  )
 
 t.create('Manifest name')
   .get('/n/RedSparr0w/IndieGala-Helper.json')
-  .expectBadge({ label: 'name', message: 'IndieGala Helper' })
+  .expectJSON({ name: 'name', value: 'IndieGala Helper' })
 
 t.create('Manifest array')
   .get('/permissions/RedSparr0w/IndieGala-Helper.json')
-  .expectBadge({
-    label: 'permissions',
-    message: Joi.string().regex(/.*?,/),
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'permissions',
+      value: Joi.string().regex(/.*?,/),
+    })
+  )
 
 t.create('Manifest object')
   .get('/background/RedSparr0w/IndieGala-Helper.json')
-  .expectBadge({ label: 'manifest', message: 'invalid key value' })
+  .expectJSON({ name: 'manifest', value: 'invalid key value' })
 
 t.create('Manifest invalid json response')
   .get('/v/RedSparr0w/not-a-real-project.json')
-  .expectBadge({
-    label: 'version',
-    message: 'repo not found, branch not found, or manifest.json missing',
+  .expectJSON({
+    name: 'version',
+    value: 'repo not found, branch not found, or manifest.json missing',
   })

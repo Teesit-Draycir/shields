@@ -1,8 +1,8 @@
 'use strict'
 
-const BaseCocoaPodsService = require('./cocoapods-base')
+const LegacyService = require('../legacy-service')
 
-module.exports = class CocoapodsLicense extends BaseCocoaPodsService {
+module.exports = class CocoapodsLicense extends LegacyService {
   static get category() {
     return 'license'
   }
@@ -19,27 +19,11 @@ module.exports = class CocoapodsLicense extends BaseCocoaPodsService {
       {
         title: 'Cocoapods',
         namedParams: { spec: 'AFNetworking' },
-        staticPreview: this.render({ license: 'MIT' }),
+        staticPreview: { label: 'license', message: 'MIT', color: '000' },
       },
     ]
   }
 
-  static get defaultBadgeData() {
-    return { label: 'license' }
-  }
-
-  static render({ license }) {
-    return {
-      message: license,
-      // https://github.com/badges/shields/pull/184
-      color: '#373737',
-    }
-  }
-
-  async handle({ spec }) {
-    const data = await this.fetch({ spec })
-    const license =
-      typeof data.license === 'string' ? data.license : data.license.type
-    return this.constructor.render({ license })
-  }
+  // Legacy route handler is defined in cocoapods.service.js.
+  static registerLegacyRouteHandler() {}
 }

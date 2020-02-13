@@ -1,8 +1,8 @@
 'use strict'
 
-const { addv } = require('../text-formatters')
-const { version: versionColor } = require('../color-formatters')
 const BaseWordpress = require('./wordpress-base')
+const { addv } = require('../../lib/text-formatters')
+const { version: versionColor } = require('../../lib/color-formatters')
 
 function VersionForExtensionType(extensionType) {
   const { capt, exampleSlug } = {
@@ -16,13 +16,24 @@ function VersionForExtensionType(extensionType) {
     },
   }[extensionType]
 
-  return class WordpressVersion extends BaseWordpress {
-    static get name() {
-      return `Wordpress${capt}Version`
+  return class WordpressPluginVersion extends BaseWordpress {
+    static get extensionType() {
+      return extensionType
+    }
+
+    static render({ response }) {
+      return {
+        message: addv(response.version),
+        color: versionColor(response.version),
+      }
     }
 
     static get category() {
       return 'version'
+    }
+
+    static get defaultBadgeData() {
+      return { label: extensionType }
     }
 
     static get route() {
@@ -35,30 +46,12 @@ function VersionForExtensionType(extensionType) {
     static get examples() {
       return [
         {
-          title: `WordPress ${capt} Version`,
+          title: `Wordpress ${capt} Version`,
           namedParams: { slug: exampleSlug },
-          staticPreview: this.render({ version: 2.5 }),
+          staticPreview: this.render({ response: { version: 2.5 } }),
+          keywords: ['wordpress'],
         },
       ]
-    }
-
-    static get defaultBadgeData() {
-      return { label: extensionType }
-    }
-
-    static render({ version }) {
-      return {
-        message: addv(version),
-        color: versionColor(version),
-      }
-    }
-
-    async handle({ slug }) {
-      const { version } = await this.fetch({
-        extensionType,
-        slug,
-      })
-      return this.constructor.render({ version })
     }
   }
 }

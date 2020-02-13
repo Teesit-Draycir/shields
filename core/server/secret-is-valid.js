@@ -2,6 +2,13 @@
 
 const serverSecrets = require('../../lib/server-secrets')
 
+function secretIsValid(secret = '') {
+  return (
+    serverSecrets.shields_secret &&
+    constEq(secret, serverSecrets.shields_secret)
+  )
+}
+
 function constEq(a, b) {
   if (a.length !== b.length) {
     return false
@@ -13,9 +20,4 @@ function constEq(a, b) {
   return zero === 0
 }
 
-module.exports = function secretIsValid(secret = '') {
-  return (
-    serverSecrets.shields_secret &&
-    constEq(secret, serverSecrets.shields_secret)
-  )
-}
+module.exports = secretIsValid

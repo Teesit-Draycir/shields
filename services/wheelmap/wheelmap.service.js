@@ -1,42 +1,35 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
+const serverSecrets = require('../../lib/server-secrets')
 const { BaseJsonService } = require('..')
 
-const schema = Joi.object({
+const wheelmapSchema = Joi.object({
   node: Joi.object({
     wheelchair: Joi.string().required(),
   }).required(),
 }).required()
 
 module.exports = class Wheelmap extends BaseJsonService {
-  static get category() {
-    return 'other'
-  }
-
-  static get route() {
-    return {
-      base: 'wheelmap/a',
-      pattern: ':nodeId(-?[0-9]+)',
+  async fetch({ nodeId }) {
+    let options
+    if (serverSecrets.wheelmap_token) {
+      options = {
+        qs: {
+          api_key: `${serverSecrets.wheelmap_token}`,
+        },
+      }
     }
-  }
 
-  static get auth() {
-    return { passKey: 'wheelmap_token', isRequired: true }
-  }
-
-  static get examples() {
-    return [
-      {
-        title: 'Wheelmap',
-        namedParams: { nodeId: '26699541' },
-        staticPreview: this.render({ accessibility: 'yes' }),
+    return this._requestJson({
+      schema: wheelmapSchema,
+      url: `https://wheelmap.org/api/nodes/${nodeId}`,
+      options,
+      errorMessages: {
+        401: 'invalid token',
+        404: 'node not found',
       },
-    ]
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'accessibility' }
+    })
   }
 
   static render({ accessibility }) {
@@ -51,21 +44,34 @@ module.exports = class Wheelmap extends BaseJsonService {
     return { message: accessibility, color }
   }
 
-  async fetch({ nodeId }) {
-    return this._requestJson({
-      schema,
-      url: `https://wheelmap.org/api/nodes/${nodeId}`,
-      options: { qs: { api_key: this.authHelper.pass } },
-      errorMessages: {
-        401: 'invalid token',
-        404: 'node not found',
-      },
-    })
-  }
-
   async handle({ nodeId }) {
     const json = await this.fetch({ nodeId })
     const accessibility = json.node.wheelchair
     return this.constructor.render({ accessibility })
+  }
+
+  static get defaultBadgeData() {
+    return { label: 'accessibility' }
+  }
+
+  static get category() {
+    return 'other'
+  }
+
+  static get route() {
+    return {
+      base: 'wheelmap/a',
+      pattern: ':nodeId(-?[0-9]+)',
+    }
+  }
+
+  static get examples() {
+    return [
+      {
+        title: 'Wheelmap',
+        namedParams: { nodeId: '26699541' },
+        staticPreview: this.render({ accessibility: 'yes' }),
+      },
+    ]
   }
 }

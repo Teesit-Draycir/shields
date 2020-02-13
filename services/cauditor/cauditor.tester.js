@@ -9,7 +9,7 @@ const t = (module.exports = new ServiceTester({
 
 t.create('no longer available')
   .get('/mi/matthiasmullie/scrapbook/master.json')
-  .expectBadge({
-    label: 'cauditor',
-    message: 'no longer available',
+  .expectJSON({
+    name: 'cauditor',
+    value: 'no longer available',
   })

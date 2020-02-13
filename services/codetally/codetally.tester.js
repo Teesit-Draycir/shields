@@ -1,6 +1,6 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const t = (module.exports = require('../tester').createServiceTester())
 
 // This test will extract the currency value from the
@@ -12,11 +12,12 @@ const t = (module.exports = require('../tester').createServiceTester())
 
 t.create('Codetally')
   .get('/triggerman722/colorstrap.json')
-  .timeout(10000)
-  .expectBadge({
-    label: 'codetally',
-    message: Joi.string().regex(/\b\d+(?:.\d+)?/),
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'codetally',
+      value: Joi.string().regex(/\b\d+(?:.\d+)?/),
+    })
+  )
 
 t.create('Empty')
   .get('/triggerman722/colorstrap.json')
@@ -30,9 +31,9 @@ t.create('Empty')
         currency_abbreviation: 'CAD',
       })
   )
-  .expectBadge({ label: 'codetally', message: '$0.00' })
+  .expectJSON({ name: 'codetally', value: '$0.00' })
 
 t.create('Non existent')
   .get('/not/real.json')
   .timeout(10000)
-  .expectBadge({ label: 'codetally', message: 'repo not found' })
+  .expectJSON({ name: 'codetally', value: 'repo not found' })

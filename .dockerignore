@@ -3,6 +3,3 @@ shields.env
 .git/
 .gitignore
 .vscode/
-
-# Improve layer cacheability.
-Dockerfile

@@ -1,7 +1,9 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { renderVersionBadge } = require('../version')
+const Joi = require('joi')
+
+const { renderVersionBadge } = require('../../lib/version')
+const serverSecrets = require('../../lib/server-secrets')
 const { BaseJsonService } = require('..')
 
 const schema = Joi.object()
@@ -20,10 +22,6 @@ module.exports = class Bintray extends BaseJsonService {
       base: 'bintray/v',
       pattern: ':subject/:repo/:packageName',
     }
-  }
-
-  static get auth() {
-    return { userKey: 'bintray_user', passKey: 'bintray_apikey' }
   }
 
   static get examples() {
@@ -45,11 +43,19 @@ module.exports = class Bintray extends BaseJsonService {
   }
 
   async fetch({ subject, repo, packageName }) {
+    const options = {}
+    if (serverSecrets.bintray_user) {
+      options.auth = {
+        user: serverSecrets.bintray_user,
+        pass: serverSecrets.bintray_apikey,
+      }
+    }
+
     // https://bintray.com/docs/api/#_get_version
     return this._requestJson({
       schema,
       url: `https://bintray.com/api/v1/packages/${subject}/${repo}/${packageName}/versions/_latest`,
-      options: { auth: this.authHelper.basicAuth },
+      options,
     })
   }
 

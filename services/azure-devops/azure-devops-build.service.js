@@ -1,8 +1,8 @@
 'use strict'
 
-const { renderBuildStatusBadge } = require('../build-status')
-const { keywords, fetch } = require('./azure-devops-helpers')
+const { renderBuildStatusBadge } = require('../../lib/build-status')
 const { BaseSvgScrapingService, NotFound } = require('..')
+const { keywords, fetch } = require('./azure-devops-helpers')
 
 const documentation = `
 <p>
@@ -34,8 +34,9 @@ module.exports = class AzureDevOpsBuild extends BaseSvgScrapingService {
 
   static get route() {
     return {
-      base: 'azure-devops/build',
-      pattern: ':organization/:projectId/:definitionId/:branch*',
+      base: '',
+      format: '(?:azure-devops|vso)/build/([^/]+)/([^/]+)/([^/]+)(?:/(.+))?',
+      capture: ['organization', 'projectId', 'definitionId', 'branch'],
     }
   }
 
@@ -43,7 +44,7 @@ module.exports = class AzureDevOpsBuild extends BaseSvgScrapingService {
     return [
       {
         title: 'Azure DevOps builds',
-        pattern: ':organization/:projectId/:definitionId',
+        pattern: 'azure-devops/build/:organization/:projectId/:definitionId',
         namedParams: {
           organization: 'totodem',
           projectId: '8cf3ec0e-d0c2-4fcd-8206-ad204f254a96',
@@ -55,7 +56,8 @@ module.exports = class AzureDevOpsBuild extends BaseSvgScrapingService {
       },
       {
         title: 'Azure DevOps builds (branch)',
-        pattern: ':organization/:projectId/:definitionId/:branch',
+        pattern:
+          'azure-devops/build/:organization/:projectId/:definitionId/:branch',
         namedParams: {
           organization: 'totodem',
           projectId: '8cf3ec0e-d0c2-4fcd-8206-ad204f254a96',

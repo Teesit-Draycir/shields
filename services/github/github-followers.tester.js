@@ -1,18 +1,21 @@
 'use strict'
 
-const { isMetric } = require('../test-validators')
+const Joi = require('joi')
+
 const t = (module.exports = require('../tester').createServiceTester())
 
 t.create('Followers')
   .get('/webcaetano.json')
-  .expectBadge({
-    label: 'followers',
-    message: isMetric,
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'followers',
+      value: Joi.string().regex(/^\w+$/),
+    })
+  )
 
 t.create('Followers (user not found)')
   .get('/PyvesB2.json')
-  .expectBadge({
-    label: 'followers',
-    message: 'user not found',
+  .expectJSON({
+    name: 'followers',
+    value: 'user not found',
   })

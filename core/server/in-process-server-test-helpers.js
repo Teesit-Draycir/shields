@@ -1,7 +1,7 @@
 'use strict'
 
-const config = require('config').util.toObject()
 const Server = require('./server')
+const config = require('config').util.toObject()
 
 function createTestServer({ port }) {
   const serverConfig = {

@@ -1,7 +1,8 @@
 'use strict'
 
+const { promisify } = require('util')
 const RedisServer = require('redis-server')
-const Redis = require('ioredis')
+const redis = require('redis')
 const { expect } = require('chai')
 const RedisTokenPersistence = require('./redis-token-persistence')
 
@@ -17,15 +18,17 @@ describe('Redis token persistence', function() {
 
   const key = 'tokenPersistenceIntegrationTest'
 
-  let redis
+  let client
   beforeEach(async function() {
-    redis = new Redis()
-    await redis.del(key)
+    client = redis.createClient()
+    const del = promisify(client.del).bind(client)
+    await del(key)
   })
   afterEach(async function() {
-    if (redis) {
-      await redis.quit()
-      redis = undefined
+    if (client) {
+      const quit = promisify(client.quit).bind(client)
+      await quit()
+      client = undefined
     }
   })
 
@@ -58,12 +61,18 @@ describe('Redis token persistence', function() {
     const initialTokens = ['a', 'b', 'c'].map(char => char.repeat(40))
 
     beforeEach(async function() {
-      await redis.sadd(key, initialTokens)
+      const rpush = promisify(client.rpush).bind(client)
+      await rpush(key, initialTokens)
+    })
+
+    let lrange
+    beforeEach(function() {
+      lrange = promisify(client.lrange).bind(client)
     })
 
     it('loads the contents', async function() {
       const tokens = await persistence.initialize()
-      expect(tokens.sort()).to.deep.equal(initialTokens)
+      expect(tokens).to.deep.equal(initialTokens)
     })
 
     context('when tokens are added', function() {
@@ -75,8 +84,8 @@ describe('Redis token persistence', function() {
         await persistence.initialize()
         await persistence.noteTokenAdded(newToken)
 
-        const savedTokens = await redis.smembers(key)
-        expect(savedTokens.sort()).to.deep.equal(expected)
+        const savedTokens = await lrange(key, 0, -1)
+        expect(savedTokens).to.deep.equal(expected)
       })
     })
 
@@ -89,8 +98,8 @@ describe('Redis token persistence', function() {
 
         await persistence.noteTokenRemoved(toRemove)
 
-        const savedTokens = await redis.smembers(key)
-        expect(savedTokens.sort()).to.deep.equal(expected)
+        const savedTokens = await lrange(key, 0, -1)
+        expect(savedTokens).to.deep.equal(expected)
       })
     })
   })

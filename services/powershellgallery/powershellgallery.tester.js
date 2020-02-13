@@ -1,6 +1,6 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const { ServiceTester } = require('../tester')
 const {
   isMetric,
@@ -19,48 +19,56 @@ module.exports = t
 
 t.create('total downloads (valid)')
   .get('/dt/ACMESharp.json')
-  .expectBadge({
-    label: 'downloads',
-    message: isMetric,
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'downloads',
+      value: isMetric,
+    })
+  )
 
 t.create('total downloads (not found)')
   .get('/dt/not-a-real-package.json')
-  .expectBadge({ label: 'downloads', message: 'not found' })
+  .expectJSON({ name: 'downloads', value: 'not found' })
 
 t.create('version (valid)')
   .get('/v/ACMESharp.json')
-  .expectBadge({
-    label: 'powershell gallery',
-    message: isVPlusDottedVersionNClauses,
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'powershell gallery',
+      value: isVPlusDottedVersionNClauses,
+    })
+  )
 
 t.create('version (not found)')
   .get('/v/not-a-real-package.json')
-  .expectBadge({ label: 'powershell gallery', message: 'not found' })
+  .expectJSON({ name: 'powershell gallery', value: 'not found' })
 
 t.create('version (pre) (valid)')
   .get('/vpre/ACMESharp.json')
-  .expectBadge({
-    label: 'powershell gallery',
-    message: isVPlusDottedVersionNClausesWithOptionalSuffix,
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'powershell gallery',
+      value: isVPlusDottedVersionNClausesWithOptionalSuffix,
+    })
+  )
 
 t.create('version (pre) (not found)')
   .get('/vpre/not-a-real-package.json')
-  .expectBadge({ label: 'powershell gallery', message: 'not found' })
+  .expectJSON({ name: 'powershell gallery', value: 'not found' })
 
 t.create('platform (valid')
   .get('/p/DNS.1.1.1.1.json')
-  .expectBadge({
-    label: 'platform',
-    message: isPlatform,
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'platform',
+      value: isPlatform,
+    })
+  )
 
 t.create('platform (no tags)')
   .get('/p/ACMESharp.json')
-  .expectBadge({ label: 'platform', message: 'not specified' })
+  .expectJSON({ name: 'platform', value: 'not specified' })
 
 t.create('platform (not found)')
   .get('/p/not-a-real-package.json')
-  .expectBadge({ label: 'platform', message: 'not found' })
+  .expectJSON({ name: 'platform', value: 'not found' })

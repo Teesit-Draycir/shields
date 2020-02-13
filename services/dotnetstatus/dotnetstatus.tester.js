@@ -9,7 +9,7 @@ const t = (module.exports = new ServiceTester({
 
 t.create('no longer available (previously get package status)')
   .get('/gh/jaredcnance/dotnet-status/API.json')
-  .expectBadge({
-    label: 'dotnet status',
-    message: 'no longer available',
+  .expectJSON({
+    name: 'dotnet status',
+    value: 'no longer available',
   })

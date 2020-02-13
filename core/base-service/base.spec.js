@@ -1,9 +1,10 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const { expect } = require('chai')
 const sinon = require('sinon')
 const trace = require('./trace')
+
 const {
   NotFound,
   Inaccessible,
@@ -15,26 +16,23 @@ const BaseService = require('./base')
 
 require('../register-chai-plugins.spec')
 
-const queryParamSchema = Joi.object({
-  queryParamA: Joi.string(),
-})
-  .rename('legacyQueryParamA', 'queryParamA', {
-    ignoreUndefined: true,
-    override: true,
-  })
-  .required()
-
 class DummyService extends BaseService {
+  static render({ namedParamA, queryParamA }) {
+    return {
+      message: `Hello namedParamA: ${namedParamA} with queryParamA: ${queryParamA}`,
+    }
+  }
+
+  async handle({ namedParamA }, { queryParamA }) {
+    return this.constructor.render({ namedParamA, queryParamA })
+  }
+
   static get category() {
     return 'other'
   }
 
-  static get route() {
-    return {
-      base: 'foo',
-      pattern: ':namedParamA',
-      queryParamSchema,
-    }
+  static get defaultBadgeData() {
+    return { label: 'cat', namedLogo: 'appveyor' }
   }
 
   static get examples() {
@@ -45,26 +43,32 @@ class DummyService extends BaseService {
         staticPreview: this.render({ namedParamA: 'foo', queryParamA: 'bar' }),
         keywords: ['hello'],
       },
+      {
+        namedParams: { namedParamA: 'World' },
+        staticPreview: this.render({ namedParamA: 'foo', queryParamA: 'bar' }),
+        keywords: ['hello'],
+      },
+      {
+        pattern: ':world',
+        namedParams: { world: 'World' },
+        queryParams: { queryParamA: '!!!' },
+        staticPreview: this.render({ namedParamA: 'foo', queryParamA: 'bar' }),
+        keywords: ['hello'],
+      },
     ]
   }
 
-  static get defaultBadgeData() {
-    return { label: 'cat', namedLogo: 'appveyor' }
-  }
-
-  static render({ namedParamA, queryParamA }) {
+  static get route() {
     return {
-      message: `Hello namedParamA: ${namedParamA} with queryParamA: ${queryParamA}`,
+      base: 'foo',
+      pattern: ':namedParamA',
+      queryParams: ['queryParamA'],
     }
-  }
-
-  async handle({ namedParamA }, { queryParamA }) {
-    return this.constructor.render({ namedParamA, queryParamA })
   }
 }
 
 describe('BaseService', function() {
-  const defaultConfig = { handleInternalErrors: false, private: {} }
+  const defaultConfig = { handleInternalErrors: false }
 
   it('Invokes the handler as expected', async function() {
     expect(
@@ -76,58 +80,6 @@ describe('BaseService', function() {
       )
     ).to.deep.equal({
       message: 'Hello namedParamA: bar.bar.bar with queryParamA: !',
-    })
-  })
-
-  it('Validates query params', async function() {
-    expect(
-      await DummyService.invoke(
-        {},
-        defaultConfig,
-        { namedParamA: 'bar.bar.bar' },
-        { queryParamA: ['foo', 'bar'] }
-      )
-    ).to.deep.equal({
-      color: 'red',
-      isError: true,
-      message: 'invalid query parameter: queryParamA',
-    })
-  })
-
-  describe('Required overrides', function() {
-    it('Should throw if render() is not overridden', function() {
-      expect(() => BaseService.render()).to.throw(
-        'render() function not implemented for BaseService'
-      )
-    })
-
-    it('Should throw if route is not overridden', async function() {
-      try {
-        await BaseService.invoke({}, {}, {})
-        expect.fail('Expected to throw')
-      } catch (e) {
-        expect(e.message).to.equal('Route not defined for BaseService')
-      }
-    })
-
-    class WithRoute extends BaseService {
-      static get route() {
-        return {}
-      }
-    }
-    it('Should throw if handle() is not overridden', async function() {
-      try {
-        await WithRoute.invoke({}, {}, {})
-        expect.fail('Expected to throw')
-      } catch (e) {
-        expect(e.message).to.equal('Handler not implemented for WithRoute')
-      }
-    })
-
-    it('Should throw if category is not overridden', function() {
-      expect(() => BaseService.category).to.throw(
-        'Category not set for BaseService'
-      )
     })
   })
 
@@ -164,55 +116,9 @@ describe('BaseService', function() {
       expect(trace.logTrace).to.be.calledWith(
         'inbound',
         sinon.match.string,
-        'Query params after validation',
+        'Query params',
         { queryParamA: '!' }
       )
-    })
-  })
-
-  describe('Service data validation', function() {
-    it('Allows a link array', async function() {
-      const message = 'hello'
-      const link = ['https://example.com/', 'https://other.example.com/']
-      class LinkService extends DummyService {
-        async handle() {
-          return { message, link }
-        }
-      }
-
-      const serviceData = await LinkService.invoke(
-        {},
-        { handleInternalErrors: false },
-        { namedParamA: 'bar.bar.bar' }
-      )
-
-      expect(serviceData).to.deep.equal({
-        message,
-        link,
-      })
-    })
-
-    it('Throws a validation error on invalid data', async function() {
-      class ThrowingService extends DummyService {
-        async handle() {
-          return {
-            some: 'nonsense',
-          }
-        }
-      }
-      try {
-        await ThrowingService.invoke(
-          {},
-          { handleInternalErrors: false },
-          { namedParamA: 'bar.bar.bar' }
-        )
-        expect.fail('Expected to throw')
-      } catch (e) {
-        expect(e.name).to.equal('ValidationError')
-        expect(e.details.map(({ message }) => message)).to.deep.equal([
-          '"message" is required',
-        ])
-      }
     })
   })
 
@@ -234,6 +140,31 @@ describe('BaseService', function() {
         color: 'lightgray',
         label: 'shields',
         message: 'internal error',
+      })
+    })
+
+    context('handle() returns invalid data', function() {
+      it('Throws a validation error', async function() {
+        class ThrowingService extends DummyService {
+          async handle() {
+            return {
+              some: 'nonsense',
+            }
+          }
+        }
+        try {
+          await ThrowingService.invoke(
+            {},
+            { handleInternalErrors: false },
+            { namedParamA: 'bar.bar.bar' }
+          )
+          expect.fail('Expected to throw')
+        } catch (e) {
+          expect(e.name).to.equal('ValidationError')
+          expect(e.details.map(({ message }) => message)).to.deep.equal([
+            '"message" is required',
+          ])
+        }
       })
     })
 
@@ -316,7 +247,7 @@ describe('BaseService', function() {
   })
 
   describe('ScoutCamp integration', function() {
-    const expectedRouteRegex = /^\/foo\/([^/]+?)(|\.svg|\.json)$/
+    const expectedRouteRegex = /^\/foo\/([^/]+?)\.(svg|png|gif|jpg|json)$/
 
     let mockCamp
     let mockHandleRequest
@@ -339,15 +270,7 @@ describe('BaseService', function() {
 
     it('handles the request', async function() {
       expect(mockHandleRequest).to.have.been.calledOnce
-
-      const {
-        queryParams: serviceQueryParams,
-        handler: requestHandler,
-      } = mockHandleRequest.getCall(0).args[1]
-      expect(serviceQueryParams).to.deep.equal([
-        'queryParamA',
-        'legacyQueryParamA',
-      ])
+      const { handler: requestHandler } = mockHandleRequest.getCall(0).args[1]
 
       const mockSendBadge = sinon.spy()
       const mockRequest = {
@@ -394,11 +317,62 @@ describe('BaseService', function() {
         isDeprecated: false,
         route: {
           pattern: '/foo/:namedParamA',
-          queryParams: ['queryParamA', 'legacyQueryParamA'],
+          queryParams: [],
         },
       })
-      // The in-depth tests for examples reside in examples.spec.js
-      expect(examples).to.have.lengthOf(1)
+
+      const [first, second, third] = examples
+      expect(first).to.deep.equal({
+        title: 'DummyService',
+        example: {
+          pattern: '/foo/:world',
+          namedParams: { world: 'World' },
+          queryParams: {},
+        },
+        preview: {
+          label: 'cat',
+          message: 'Hello namedParamA: foo with queryParamA: bar',
+          color: 'lightgrey',
+          namedLogo: undefined,
+          style: undefined,
+        },
+        keywords: ['hello'],
+        documentation: undefined,
+      })
+      expect(second).to.deep.equal({
+        title: 'DummyService',
+        example: {
+          pattern: '/foo/:namedParamA',
+          namedParams: { namedParamA: 'World' },
+          queryParams: {},
+        },
+        preview: {
+          label: 'cat',
+          message: 'Hello namedParamA: foo with queryParamA: bar',
+          color: 'lightgrey',
+          namedLogo: undefined,
+          style: undefined,
+        },
+        keywords: ['hello'],
+        documentation: undefined,
+      })
+      expect(third).to.deep.equal({
+        title: 'DummyService',
+        example: {
+          pattern: '/foo/:world',
+          namedParams: { world: 'World' },
+          queryParams: { queryParamA: '!!!' },
+        },
+        preview: {
+          color: 'lightgrey',
+          label: 'cat',
+          message: 'Hello namedParamA: foo with queryParamA: bar',
+          namedLogo: undefined,
+          style: undefined,
+        },
+        keywords: ['hello'],
+        documentation: undefined,
+      })
     })
   })
 
@@ -416,6 +390,18 @@ describe('BaseService', function() {
         expect.fail('Expected to throw')
       } catch (e) {
         expect(e).to.be.an.instanceof(InvalidResponse)
+      }
+    })
+
+    it('throws error for invalid query params', async function() {
+      try {
+        DummyService._validateQueryParams(
+          { requiredString: ['this', "shouldn't", 'work'] },
+          dummySchema
+        )
+        expect.fail('Expected to throw')
+      } catch (e) {
+        expect(e).to.be.an.instanceof(InvalidParameter)
       }
     })
   })
@@ -480,45 +466,6 @@ describe('BaseService', function() {
         expect(e.message).to.equal('Not Found')
         expect(e.prettyMessage).to.equal('not found')
       }
-    })
-  })
-
-  describe('auth', function() {
-    class AuthService extends DummyService {
-      static get auth() {
-        return {
-          passKey: 'myci_pass',
-          isRequired: true,
-        }
-      }
-
-      async handle() {
-        return {
-          message: `The CI password is ${this.authHelper.pass}`,
-        }
-      }
-    }
-
-    it('when auth is configured properly, invoke() sets authHelper', async function() {
-      expect(
-        await AuthService.invoke(
-          {},
-          { defaultConfig, private: { myci_pass: 'abc123' } },
-          { namedParamA: 'bar.bar.bar' }
-        )
-      ).to.deep.equal({ message: 'The CI password is abc123' })
-    })
-
-    it('when auth is not configured properly, invoke() returns inacessible', async function() {
-      expect(
-        await AuthService.invoke({}, defaultConfig, {
-          namedParamA: 'bar.bar.bar',
-        })
-      ).to.deep.equal({
-        color: 'lightgray',
-        isError: true,
-        message: 'credentials have not been configured',
-      })
     })
   })
 })

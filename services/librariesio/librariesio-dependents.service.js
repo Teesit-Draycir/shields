@@ -1,39 +1,36 @@
 'use strict'
 
-const { metric } = require('../text-formatters')
-const { fetchProject } = require('./librariesio-common')
-const { BaseJsonService } = require('..')
+const { metric } = require('../../lib/text-formatters')
+const LibrariesIoBase = require('./librariesio-base')
 
 // https://libraries.io/api#project-dependents
-module.exports = class LibrariesIoDependents extends BaseJsonService {
+class LibrariesIoDependents extends LibrariesIoBase {
   static get category() {
     return 'other'
-  }
-
-  static get route() {
-    return {
-      base: 'librariesio/dependents',
-      pattern: ':platform/:packageName',
-    }
-  }
-
-  static get examples() {
-    return [
-      {
-        title: 'Dependents (via libraries.io)',
-        namedParams: {
-          platform: 'npm',
-          packageName: 'got',
-        },
-        staticPreview: this.render({ dependentCount: 2000 }),
-      },
-    ]
   }
 
   static get defaultBadgeData() {
     return {
       label: 'dependents',
     }
+  }
+
+  static get route() {
+    return this.buildRoute('librariesio/dependents')
+  }
+
+  static get examples() {
+    return [
+      {
+        title: 'Dependents (via libraries.io)',
+        pattern: ':platform/:library',
+        namedParams: {
+          platform: 'npm',
+          library: 'got',
+        },
+        staticPreview: this.render({ dependentCount: 2000 }),
+      },
+    ]
   }
 
   static render({ dependentCount }) {
@@ -44,10 +41,15 @@ module.exports = class LibrariesIoDependents extends BaseJsonService {
   }
 
   async handle({ platform, packageName }) {
-    const { dependents_count: dependentCount } = await fetchProject(this, {
-      platform,
-      packageName,
-    })
+    const { dependents_count: dependentCount } = await this.fetch(
+      {
+        platform,
+        packageName,
+      },
+      { allowPackages: true }
+    )
     return this.constructor.render({ dependentCount })
   }
 }
+
+module.exports = LibrariesIoDependents

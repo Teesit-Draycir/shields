@@ -1,8 +1,7 @@
 'use strict'
 
-const { renderVersionBadge } = require('../version')
+const { renderVersionBadge } = require('../../lib/version')
 const { BaseCratesService, keywords } = require('./crates-base')
-const { InvalidResponse } = require('..')
 
 module.exports = class CratesVersion extends BaseCratesService {
   static get category() {
@@ -21,22 +20,20 @@ module.exports = class CratesVersion extends BaseCratesService {
       {
         title: 'Crates.io',
         namedParams: { crate: 'rustc-serialize' },
-        staticPreview: renderVersionBadge({ version: '0.3.24' }),
+        staticPreview: this.render({ version: '0.3.24' }),
         keywords,
       },
     ]
   }
 
-  transform(json) {
-    if (json.errors) {
-      throw new InvalidResponse({ prettyMessage: json.errors[0].detail })
-    }
-    return { version: json.version ? json.version.num : json.crate.max_version }
+  static render({ version }) {
+    return renderVersionBadge({ version })
   }
 
   async handle({ crate }) {
     const json = await this.fetch({ crate })
-    const { version } = this.transform(json)
-    return renderVersionBadge({ version })
+    return this.constructor.render({
+      version: json.version ? json.version.num : json.crate.max_version,
+    })
   }
 }

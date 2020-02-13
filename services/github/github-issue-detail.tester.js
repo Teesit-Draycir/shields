@@ -1,67 +1,68 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const { isFormattedDate } = require('../test-validators')
+
 const t = (module.exports = require('../tester').createServiceTester())
 
 t.create('github issue state')
-  .get('/issues/detail/state/badges/shields/979.json')
-  .expectBadge({
-    label: 'issue 979',
-    message: Joi.equal('open', 'closed'),
-  })
+  .get('/s/badges/shields/979.json')
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'issue 979',
+      value: Joi.equal('open', 'closed'),
+    })
+  )
 
 t.create('github issue state (repo not found)')
-  .get('/issues/detail/state/badges/helmets/979.json')
-  .expectBadge({
-    label: 'issue/pull request',
-    message: 'issue, pull request or repo not found',
+  .get('/s/badges/helmets/979.json')
+  .expectJSON({
+    name: 'issue/pull request 979',
+    value: 'issue, pull request or repo not found',
   })
 
 t.create('github issue title')
-  .get('/issues/detail/title/badges/shields/979.json')
-  .expectBadge({
-    label: 'issue 979',
-    message: 'Github rate limits cause transient service test failures in CI',
-  })
+  .get('/title/badges/shields/979.json')
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'issue 979',
+      value: 'Github rate limits cause transient service test failures in CI',
+    })
+  )
 
 t.create('github issue author')
-  .get('/issues/detail/author/badges/shields/979.json')
-  .expectBadge({ label: 'author', message: 'paulmelnikow' })
+  .get('/u/badges/shields/979.json')
+  .expectJSONTypes(Joi.object().keys({ name: 'author', value: 'paulmelnikow' }))
 
 t.create('github issue label')
-  .get('/issues/detail/label/badges/shields/979.json')
-  .expectBadge({
-    label: 'label',
-    message: Joi.equal(
-      'bug | developer-experience',
-      'developer-experience | bug'
-    ),
-  })
+  .get('/label/badges/shields/979.json')
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'label',
+      value: Joi.equal(
+        'bug | developer-experience',
+        'developer-experience | bug'
+      ),
+    })
+  )
 
 t.create('github issue comments')
-  .get('/issues/detail/comments/badges/shields/979.json')
-  .expectBadge({
-    label: 'comments',
-    message: Joi.number().greater(15),
-  })
+  .get('/comments/badges/shields/979.json')
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'comments',
+      value: Joi.number().greater(15),
+    })
+  )
 
 t.create('github issue age')
-  .get('/issues/detail/age/badges/shields/979.json')
-  .expectBadge({ label: 'created', message: isFormattedDate })
+  .get('/age/badges/shields/979.json')
+  .expectJSONTypes(
+    Joi.object().keys({ name: 'created', value: isFormattedDate })
+  )
 
 t.create('github issue update')
-  .get('/issues/detail/last-update/badges/shields/979.json')
-  .expectBadge({ label: 'updated', message: isFormattedDate })
-
-t.create('github pull request merge state')
-  .get('/pulls/detail/state/pingcap/raft-rs/201.json')
-  .expectBadge({ label: 'pull request 201', message: 'merged' })
-
-t.create('github pull request merge state (pull request not found)')
-  // it's an issue
-  .get('/pulls/detail/state/pingcap/raft-rs/177.json')
-  .expectBadge({
-    label: 'issue/pull request',
-    message: 'issue, pull request or repo not found',
-  })
+  .get('/last-update/badges/shields/979.json')
+  .expectJSONTypes(
+    Joi.object().keys({ name: 'updated', value: isFormattedDate })
+  )

@@ -1,7 +1,7 @@
 'use strict'
 
-const { renderVersionBadge } = require('../version')
 const BaseBowerService = require('./bower-base')
+const { renderVersionBadge } = require('../../lib/version')
 const { InvalidResponse } = require('..')
 
 module.exports = class BowerVersion extends BaseBowerService {
@@ -31,10 +31,6 @@ module.exports = class BowerVersion extends BaseBowerService {
         staticPreview: renderVersionBadge({ version: '4.2.1' }),
       },
     ]
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'bower' }
   }
 
   async handle({ vtype, packageName }) {

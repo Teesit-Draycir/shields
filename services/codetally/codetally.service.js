@@ -1,6 +1,6 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const { BaseJsonService } = require('..')
 
 const schema = Joi.object({
@@ -13,8 +13,21 @@ const schema = Joi.object({
 }).required()
 
 module.exports = class Codetally extends BaseJsonService {
+  static render({ currency, amount, multiplier }) {
+    return {
+      message: `${currency}${amount.toFixed(2)} ${multiplier}`,
+    }
+  }
+
   static get category() {
     return 'funding'
+  }
+
+  static get defaultBadgeData() {
+    return {
+      label: 'codetally',
+      color: '#2E8B57',
+    }
   }
 
   static get route() {
@@ -39,19 +52,6 @@ module.exports = class Codetally extends BaseJsonService {
         }),
       },
     ]
-  }
-
-  static get defaultBadgeData() {
-    return {
-      label: 'codetally',
-      color: '#2E8B57',
-    }
-  }
-
-  static render({ currency, amount, multiplier }) {
-    return {
-      message: `${currency}${amount.toFixed(2)} ${multiplier}`,
-    }
   }
 
   async handle({ owner, repo }) {

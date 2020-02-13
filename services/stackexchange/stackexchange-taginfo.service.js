@@ -1,8 +1,8 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const renderQuestionsBadge = require('./stackexchange-helpers')
+const Joi = require('joi')
 const { BaseJsonService } = require('..')
+const renderQuestionsBadge = require('./stackexchange-helpers')
 
 const tagSchema = Joi.object({
   items: Joi.array()
@@ -22,11 +22,8 @@ module.exports = class StackExchangeQuestions extends BaseJsonService {
     return 'chat'
   }
 
-  static get route() {
-    return {
-      base: 'stackexchange',
-      pattern: ':stackexchangesite/t/:query',
-    }
+  static get defaultBadgeData() {
+    return { label: 'stackoverflow' }
   }
 
   static get examples() {
@@ -44,8 +41,11 @@ module.exports = class StackExchangeQuestions extends BaseJsonService {
     ]
   }
 
-  static get defaultBadgeData() {
-    return { label: 'stackoverflow' }
+  static get route() {
+    return {
+      base: 'stackexchange',
+      pattern: ':stackexchangesite/t/:query',
+    }
   }
 
   static render(props) {

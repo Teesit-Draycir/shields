@@ -1,7 +1,4 @@
 'use strict'
-/**
- * @module
- */
 
 const { loadTesters } = require('../base-service/loader')
 
@@ -39,7 +36,7 @@ class Runner {
   /**
    * Limit the test run to the specified services.
    *
-   * @param {string[]} services An array of service id prefixes to run
+   * @param services An array of service id prefixes to run
    */
   only(services) {
     const normalizedServices = new Set(services.map(v => v.toLowerCase()))

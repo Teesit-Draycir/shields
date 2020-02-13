@@ -1,6 +1,6 @@
 {
   "name": "gh-badges",
-  "version": "2.2.1",
+  "version": "2.1.0",
   "description": "Shields.io badge library",
   "keywords": [
     "GitHub",
@@ -34,11 +34,11 @@
     "logo": "https://opencollective.com/opencollective/logo.txt"
   },
   "dependencies": {
-    "anafanafo": "^1.0.0",
-    "dot": "^1.1.2",
+    "anafanafo": "^0.1.0",
+    "dot": "~1.1.2",
     "gm": "^1.23.0",
     "is-css-color": "^1.0.0",
-    "svgo": "^1.1.1"
+    "svgo": "~1.1.1"
   },
   "scripts": {
     "test": "echo 'Run tests from parent dir'; false"

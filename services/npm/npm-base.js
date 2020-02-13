@@ -1,9 +1,9 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { optionalUrl } = require('../validators')
-const { isDependencyMap } = require('../package-json-helpers')
+const Joi = require('joi')
+const serverSecrets = require('../../lib/server-secrets')
 const { BaseJsonService, InvalidResponse, NotFound } = require('..')
+const { isDependencyMap } = require('../package-json-helpers')
 
 const deprecatedLicenseObjectSchema = Joi.object({
   type: Joi.string().required(),
@@ -30,29 +30,21 @@ const packageDataSchema = Joi.object({
     .default([]),
 }).required()
 
-const queryParamSchema = Joi.object({
-  registry_uri: optionalUrl,
-}).required()
-
 // Abstract class for NPM badges which display data about the latest version
 // of a package.
 module.exports = class NpmBase extends BaseJsonService {
-  static get auth() {
-    return { passKey: 'npm_token' }
-  }
-
   static buildRoute(base, { withTag } = {}) {
     if (withTag) {
       return {
         base,
         pattern: ':scope(@[^/]+)?/:packageName/:tag?',
-        queryParamSchema,
+        queryParams: ['registry_uri'],
       }
     } else {
       return {
         base,
         pattern: ':scope(@[^/]+)?/:packageName',
-        queryParamSchema,
+        queryParams: ['registry_uri'],
       }
     }
   }
@@ -77,16 +69,15 @@ module.exports = class NpmBase extends BaseJsonService {
   }
 
   async _requestJson(data) {
+    // Use a custom Accept header because of this bug:
+    // <https://github.com/npm/npmjs.org/issues/163>
+    const headers = { Accept: '*/*' }
+    if (serverSecrets.npm_token) {
+      headers.Authorization = `Bearer ${serverSecrets.npm_token}`
+    }
     return super._requestJson({
       ...data,
-      options: {
-        headers: {
-          // Use a custom Accept header because of this bug:
-          // <https://github.com/npm/npmjs.org/issues/163>
-          Accept: '*/*',
-          ...this.authHelper.bearerAuthHeader,
-        },
-      },
+      options: { headers },
     })
   }
 
@@ -135,5 +126,3 @@ module.exports = class NpmBase extends BaseJsonService {
     return this.constructor._validate(packageData, packageDataSchema)
   }
 }
-
-module.exports.queryParamSchema = queryParamSchema

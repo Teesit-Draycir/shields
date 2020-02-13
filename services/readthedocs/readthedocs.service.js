@@ -1,7 +1,10 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { isBuildStatus, renderBuildStatusBadge } = require('../build-status')
+const Joi = require('joi')
+const {
+  isBuildStatus,
+  renderBuildStatusBadge,
+} = require('../../lib/build-status')
 const { BaseSvgScrapingService, NotFound } = require('..')
 
 const keywords = ['documentation']

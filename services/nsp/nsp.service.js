@@ -2,12 +2,12 @@
 
 const { deprecatedService } = require('..')
 
+// nsp integration - deprecated as of December 2018.
 module.exports = deprecatedService({
   route: {
     base: 'nsp/npm',
-    pattern: ':various*',
+    format: '(?:.+)',
   },
   label: 'nsp',
   category: 'other',
-  dateAdded: new Date('2018-12-13'),
 })

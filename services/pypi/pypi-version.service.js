@@ -1,6 +1,6 @@
 'use strict'
 
-const { renderVersionBadge } = require('../version')
+const { renderVersionBadge } = require('../../lib/version')
 const PypiBase = require('./pypi-base')
 
 module.exports = class PypiVersion extends PypiBase {
@@ -10,6 +10,10 @@ module.exports = class PypiVersion extends PypiBase {
 
   static get route() {
     return this.buildRoute('pypi/v')
+  }
+
+  static get defaultBadgeData() {
+    return { label: 'pypi' }
   }
 
   static get examples() {
@@ -22,10 +26,6 @@ module.exports = class PypiVersion extends PypiBase {
         keywords: ['python'],
       },
     ]
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'pypi' }
   }
 
   static render({ version }) {

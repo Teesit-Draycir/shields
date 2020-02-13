@@ -44,13 +44,13 @@ function sendTokenToAllServers(token) {
   )
 }
 
-function setRoutes({ server, authHelper, onTokenAccepted }) {
+function setRoutes({ server, onTokenAccepted }) {
   const baseUrl = process.env.GATSBY_BASE_URL || 'https://img.shields.io'
 
   server.route(/^\/github-auth$/, (data, match, end, ask) => {
     ask.res.statusCode = 302 // Found.
     const query = queryString.stringify({
-      client_id: authHelper.user,
+      client_id: serverSecrets.gh_client_id,
       redirect_uri: `${baseUrl}/github-auth/done`,
     })
     ask.res.setHeader(
@@ -74,8 +74,8 @@ function setRoutes({ server, authHelper, onTokenAccepted }) {
         'User-Agent': 'Shields.io',
       },
       form: queryString.stringify({
-        client_id: authHelper.user,
-        client_secret: authHelper.pass,
+        client_id: serverSecrets.gh_client_id,
+        client_secret: serverSecrets.gh_client_secret,
         code: data.code,
       }),
     }

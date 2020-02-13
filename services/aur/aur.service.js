@@ -1,10 +1,10 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { floorCount: floorCountColor } = require('../color-formatters')
-const { addv, metric } = require('../text-formatters')
-const { nonNegativeInteger } = require('../validators')
+const Joi = require('joi')
+const { floorCount: floorCountColor } = require('../../lib/color-formatters')
+const { addv, metric } = require('../../lib/text-formatters')
 const { BaseJsonService, NotFound } = require('..')
+const { nonNegativeInteger } = require('../validators')
 
 const aurSchema = Joi.object({
   resultcount: nonNegativeInteger,
@@ -22,6 +22,14 @@ const aurSchema = Joi.object({
 }).required()
 
 class BaseAurService extends BaseJsonService {
+  async fetch({ packageName }) {
+    return this._requestJson({
+      schema: aurSchema,
+      url: 'https://aur.archlinux.org/rpc.php',
+      options: { qs: { type: 'info', arg: packageName } },
+    })
+  }
+
   static get defaultBadgeData() {
     return { label: 'aur' }
   }
@@ -35,17 +43,22 @@ class BaseAurService extends BaseJsonService {
     }
     return super._validate(data, schema)
   }
-
-  async fetch({ packageName }) {
-    return this._requestJson({
-      schema: aurSchema,
-      url: 'https://aur.archlinux.org/rpc.php',
-      options: { qs: { type: 'info', arg: packageName } },
-    })
-  }
 }
 
 class AurLicense extends BaseAurService {
+  static render({ license }) {
+    return { message: license, color: 'blue' }
+  }
+
+  async handle({ packageName }) {
+    const json = await this.fetch({ packageName })
+    return this.constructor.render({ license: json.results.License })
+  }
+
+  static get defaultBadgeData() {
+    return { label: 'license' }
+  }
+
   static get category() {
     return 'license'
   }
@@ -61,51 +74,14 @@ class AurLicense extends BaseAurService {
     return [
       {
         title: 'AUR license',
-        namedParams: { packageName: 'pac' },
-        staticPreview: this.render({ license: 'MIT' }),
+        namedParams: { packageName: 'yaourt' },
+        staticPreview: this.render({ license: 'GPL' }),
       },
     ]
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'license' }
-  }
-
-  static render({ license }) {
-    return { message: license, color: 'blue' }
-  }
-
-  async handle({ packageName }) {
-    const json = await this.fetch({ packageName })
-    return this.constructor.render({ license: json.results.License })
   }
 }
 
 class AurVotes extends BaseAurService {
-  static get category() {
-    return 'rating'
-  }
-  static get route() {
-    return {
-      base: 'aur/votes',
-      pattern: ':packageName',
-    }
-  }
-
-  static get examples() {
-    return [
-      {
-        title: 'AUR votes',
-        namedParams: { packageName: 'dropbox' },
-        staticPreview: this.render({ votes: '2280' }),
-      },
-    ]
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'votes' }
-  }
-
   static render({ votes }) {
     return {
       message: metric(votes),
@@ -117,9 +93,47 @@ class AurVotes extends BaseAurService {
     const json = await this.fetch({ packageName })
     return this.constructor.render({ votes: json.results.NumVotes })
   }
+
+  static get defaultBadgeData() {
+    return { label: 'votes' }
+  }
+
+  static get category() {
+    return 'rating'
+  }
+
+  static get route() {
+    return {
+      base: 'aur/votes',
+      pattern: ':packageName',
+    }
+  }
+
+  static get examples() {
+    return [
+      {
+        title: 'AUR votes',
+        namedParams: { packageName: 'yaourt' },
+        staticPreview: this.render({ votes: '3029' }),
+      },
+    ]
+  }
 }
 
 class AurVersion extends BaseAurService {
+  static render({ version, outOfDate }) {
+    const color = outOfDate === null ? 'blue' : 'orange'
+    return { message: addv(version), color }
+  }
+
+  async handle({ packageName }) {
+    const json = await this.fetch({ packageName })
+    return this.constructor.render({
+      version: json.results.Version,
+      outOfDate: json.results.OutOfDate,
+    })
+  }
+
   static get category() {
     return 'version'
   }
@@ -135,23 +149,10 @@ class AurVersion extends BaseAurService {
     return [
       {
         title: 'AUR version',
-        namedParams: { packageName: 'visual-studio-code-bin' },
-        staticPreview: this.render({ version: '1.34.0-2', outOfDate: null }),
+        namedParams: { packageName: 'yaourt' },
+        staticPreview: this.render({ version: 'v1.9-1', outOfDate: null }),
       },
     ]
-  }
-
-  static render({ version, outOfDate }) {
-    const color = outOfDate === null ? 'blue' : 'orange'
-    return { message: addv(version), color }
-  }
-
-  async handle({ packageName }) {
-    const json = await this.fetch({ packageName })
-    return this.constructor.render({
-      version: json.results.Version,
-      outOfDate: json.results.OutOfDate,
-    })
   }
 }
 

@@ -22,14 +22,8 @@ function twitterPage(url) {
     link: `https://twitter.com/intent/tweet?text=Wow:&url=${encodeURIComponent(
       url.href
     )}`,
-    example: {
-      pattern: '/twitter/url/:protocol(https|http)/:hostAndPath+',
-      namedParams: { protocol: `${schema}`, hostAndPath: `${host}${path}` },
-      queryParams: {},
-    },
-    preview: {
-      style: 'social',
-    },
+    path: `/twitter/url/${schema}/${host}${path}`,
+    queryParams: { style: 'social' },
   }
 }
 
@@ -38,11 +32,7 @@ function githubIssues(user, repo) {
   return {
     title: 'GitHub issues',
     link: `https://github.com/${repoSlug}/issues`,
-    example: {
-      pattern: '/github/issues/:user/:repo',
-      namedParams: { user, repo },
-      queryParams: {},
-    },
+    path: `/github/issues/${repoSlug}`,
   }
 }
 
@@ -51,11 +41,7 @@ function githubForks(user, repo) {
   return {
     title: 'GitHub forks',
     link: `https://github.com/${repoSlug}/network`,
-    example: {
-      pattern: '/github/forks/:user/:repo',
-      namedParams: { user, repo },
-      queryParams: {},
-    },
+    path: `/github/forks/${repoSlug}`,
   }
 }
 
@@ -64,11 +50,7 @@ function githubStars(user, repo) {
   return {
     title: 'GitHub stars',
     link: `https://github.com/${repoSlug}/stargazers`,
-    example: {
-      pattern: '/github/stars/:user/:repo',
-      namedParams: { user, repo },
-      queryParams: {},
-    },
+    path: `/github/stars/${repoSlug}`,
   }
 }
 
@@ -90,12 +72,8 @@ async function githubLicense(githubApiProvider, user, repo) {
 
   return {
     title: 'GitHub license',
+    path: `/github/license/${repoSlug}`,
     link,
-    example: {
-      pattern: '/github/license/:user/:repo',
-      namedParams: { user, repo },
-      queryParams: {},
-    },
   }
 }
 
@@ -123,14 +101,9 @@ async function findSuggestions(githubApiProvider, url) {
 // end: function(json), with json of the form:
 //  - suggestions: list of objects of the form:
 //    - title: string
-//    - link: target as a string URL
-//    - example: object
-//      - pattern: string
-//      - namedParams: object
-//      - queryParams: object (optional)
-//        - link: target as a string URL
-//    - preview: object (optional)
-//      - style: string
+//    - link: target as a string URL.
+//    - path: shields image URL path.
+//    - queryParams: Object containing query params (Optional)
 function setRoutes(allowedOrigin, githubApiProvider, server) {
   server.ajax.on('suggest/v1', (data, end, ask) => {
     // The typical dev and production setups are cross-origin. However, in

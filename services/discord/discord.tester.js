@@ -1,19 +1,22 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
+
 const t = (module.exports = require('../tester').createServiceTester())
 
 t.create('gets status for Reactiflux')
-  .get('/102860784329052160.json')
-  .expectBadge({
-    label: 'chat',
-    message: Joi.string().regex(/^[0-9]+ online$/),
-    color: 'brightgreen',
-  })
+  .get('/102860784329052160.json?style=_shields_test')
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'chat',
+      value: Joi.string().regex(/^[0-9]+ online$/),
+      color: 'brightgreen',
+    })
+  )
 
 t.create('invalid server ID')
   .get('/12345.json')
-  .expectBadge({ label: 'chat', message: 'invalid server' })
+  .expectJSON({ name: 'chat', value: 'invalid server' })
 
 t.create('widget disabled')
   .get('/12345.json')
@@ -25,7 +28,7 @@ t.create('widget disabled')
         message: 'Widget Disabled',
       })
   )
-  .expectBadge({ label: 'chat', message: 'widget disabled' })
+  .expectJSON({ name: 'chat', value: 'widget disabled' })
 
 t.create('server error')
   .get('/12345.json')
@@ -34,4 +37,4 @@ t.create('server error')
       .get('/api/guilds/12345/widget.json')
       .reply(500, 'Something broke')
   )
-  .expectBadge({ label: 'chat', message: 'inaccessible' })
+  .expectJSON({ name: 'chat', value: 'inaccessible' })

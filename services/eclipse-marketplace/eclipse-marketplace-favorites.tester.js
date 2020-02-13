@@ -1,20 +1,23 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
+
 const t = (module.exports = require('../tester').createServiceTester())
 
 t.create('favorites count')
   .get('/notepad4e.json')
-  .expectBadge({
-    label: 'favorites',
-    message: Joi.number()
-      .integer()
-      .positive(),
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'favorites',
+      value: Joi.number()
+        .integer()
+        .positive(),
+    })
+  )
 
 t.create('favorites for unknown solution')
   .get('/this-does-not-exist.json')
-  .expectBadge({
-    label: 'favorites',
-    message: 'solution not found',
+  .expectJSON({
+    name: 'favorites',
+    value: 'solution not found',
   })

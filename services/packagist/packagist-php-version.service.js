@@ -1,9 +1,16 @@
 'use strict'
 
-const { allVersionsSchema, BasePackagistService } = require('./packagist-base')
-const { NotFound } = require('..')
+const LegacyService = require('../legacy-service')
+const { makeBadgeData: getBadgeData } = require('../../lib/badge-data')
+const log = require('../../core/server/log')
 
-module.exports = class PackagistPhpVersion extends BasePackagistService {
+// This legacy service should be rewritten to use e.g. BaseJsonService.
+//
+// Tips for rewriting:
+// https://github.com/badges/shields/blob/master/doc/rewriting-services.md
+//
+// Do not base new services on this code.
+module.exports = class PackagistPhpVersion extends LegacyService {
   static get category() {
     return 'platform-support'
   }
@@ -11,7 +18,7 @@ module.exports = class PackagistPhpVersion extends BasePackagistService {
   static get route() {
     return {
       base: 'packagist/php-v',
-      pattern: ':user/:repo/:version?',
+      pattern: ':user/:repo',
     }
   }
 
@@ -19,57 +26,52 @@ module.exports = class PackagistPhpVersion extends BasePackagistService {
     return [
       {
         title: 'PHP from Packagist',
-        pattern: ':user/:repo',
         namedParams: {
           user: 'symfony',
           repo: 'symfony',
         },
-        staticPreview: this.render({ php: '^7.1.3' }),
-      },
-      {
-        title: 'PHP from Packagist (specify version)',
-        pattern: ':user/:repo/:version',
-        namedParams: {
-          user: 'symfony',
-          repo: 'symfony',
-          version: 'v2.8.0',
+        staticPreview: {
+          label: 'php',
+          message: '^7.1.3',
+          color: 'blue',
         },
-        staticPreview: this.render({ php: '>=5.3.9' }),
       },
     ]
   }
 
-  static get defaultBadgeData() {
-    return {
-      label: 'php',
-      color: 'blue',
-    }
-  }
+  static registerLegacyRouteHandler({ camp, cache }) {
+    camp.route(
+      /^\/packagist\/php-v\/([^/]+\/[^/]+)(?:\/([^/]+))?\.(svg|png|gif|jpg|json)$/,
+      cache((data, match, sendBadge, request) => {
+        const userRepo = match[1] // eg, espadrine/sc
+        const version = match[2] ? match[2] : 'dev-master'
+        const format = match[3]
+        const options = {
+          method: 'GET',
+          uri: `https://packagist.org/p/${userRepo}.json`,
+        }
+        const badgeData = getBadgeData('php', data)
+        request(options, (err, res, buffer) => {
+          if (err !== null) {
+            log.error(`Packagist error: ${err.stack}`)
+            if (res) {
+              log.error(`${res}`)
+            }
+            badgeData.text[1] = 'invalid'
+            sendBadge(format, badgeData)
+            return
+          }
 
-  static render({ php }) {
-    return {
-      message: php,
-    }
-  }
-
-  async handle({ user, repo, version = 'dev-master' }) {
-    const allData = await this.fetch({
-      user,
-      repo,
-      schema: allVersionsSchema,
-    })
-
-    if (!allData.package.versions.hasOwnProperty(version)) {
-      throw new NotFound({ prettyMessage: 'invalid version' })
-    }
-
-    const packageVersion = allData.package.versions[version]
-    if (!packageVersion.require || !packageVersion.require.php) {
-      throw new NotFound({ prettyMessage: 'version requirement not found' })
-    }
-
-    return this.constructor.render({
-      php: packageVersion.require.php,
-    })
+          try {
+            const data = JSON.parse(buffer)
+            badgeData.text[1] = data.packages[userRepo][version].require.php
+            badgeData.colorscheme = 'blue'
+          } catch (e) {
+            badgeData.text[1] = 'invalid'
+          }
+          sendBadge(format, badgeData)
+        })
+      })
+    )
   }
 }

@@ -1,5 +1,6 @@
 'use strict'
 
+const Joi = require('joi')
 const { ServiceTester } = require('../tester')
 const { isRelativeFormattedDate } = require('../test-validators')
 
@@ -10,8 +11,10 @@ const t = (module.exports = new ServiceTester({
 
 t.create('Relative date')
   .get('/1540814400.json')
-  .expectBadge({ label: 'date', message: isRelativeFormattedDate })
+  .expectJSONTypes(
+    Joi.object().keys({ name: 'date', value: isRelativeFormattedDate })
+  )
 
 t.create('Relative date - Invalid')
   .get('/9999999999999.json')
-  .expectBadge({ label: 'date', message: 'invalid date' })
+  .expectJSONTypes(Joi.object().keys({ name: 'date', value: 'invalid date' }))

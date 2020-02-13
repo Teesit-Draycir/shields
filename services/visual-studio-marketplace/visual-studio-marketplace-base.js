@@ -1,8 +1,8 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const validate = require('../../core/base-service/validate')
+const Joi = require('joi')
 const { BaseJsonService, NotFound } = require('..')
+const validate = require('../../core/base-service/validate')
 
 const extensionQuerySchema = Joi.object({
   results: Joi.array()
@@ -47,6 +47,8 @@ module.exports = class VisualStudioMarketplaceBase extends BaseJsonService {
   static get keywords() {
     return [
       'vscode',
+      'visual studio',
+      'azure devops',
       'tfs',
       'vsts',
       'visual-studio-marketplace',

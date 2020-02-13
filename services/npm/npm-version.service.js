@@ -1,9 +1,9 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { renderVersionBadge } = require('../version')
-const NpmBase = require('./npm-base')
+const Joi = require('joi')
+const { renderVersionBadge } = require('../../lib/version')
 const { NotFound } = require('..')
+const NpmBase = require('./npm-base')
 
 const keywords = ['node']
 
@@ -19,6 +19,10 @@ module.exports = class NpmVersion extends NpmBase {
 
   static get route() {
     return this.buildRoute('npm/v', { withTag: true })
+  }
+
+  static get defaultBadgeData() {
+    return { label: 'npm' }
   }
 
   static get examples() {
@@ -60,10 +64,6 @@ module.exports = class NpmVersion extends NpmBase {
         keywords,
       },
     ]
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'npm' }
   }
 
   static render({ tag, version }) {

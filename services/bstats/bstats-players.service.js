@@ -1,7 +1,7 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { metric } = require('../text-formatters')
+const Joi = require('joi')
+const { metric } = require('../../lib/text-formatters')
 const { BaseJsonService } = require('..')
 
 const schema = Joi.array()
@@ -9,27 +9,11 @@ const schema = Joi.array()
   .required()
 
 module.exports = class BStatsPlayers extends BaseJsonService {
-  static get category() {
-    return 'other'
-  }
-
   static get route() {
     return {
       base: 'bstats/players',
       pattern: ':pluginid',
     }
-  }
-
-  static get examples() {
-    return [
-      {
-        title: 'bStats Players',
-        namedParams: {
-          pluginid: '1',
-        },
-        staticPreview: this.render({ players: 74299 }),
-      },
-    ]
   }
 
   static get defaultBadgeData() {
@@ -39,10 +23,15 @@ module.exports = class BStatsPlayers extends BaseJsonService {
     }
   }
 
-  static render({ players }) {
-    return {
-      message: metric(players),
-    }
+  async handle({ pluginid }) {
+    const json = await this.fetch({ pluginid })
+    const { players } = this.transform({ json })
+    return this.constructor.render({ players })
+  }
+
+  transform({ json }) {
+    const players = json[0][1]
+    return { players }
   }
 
   async fetch({ pluginid }) {
@@ -59,14 +48,24 @@ module.exports = class BStatsPlayers extends BaseJsonService {
     })
   }
 
-  transform({ json }) {
-    const players = json[0][1]
-    return { players }
+  static render({ players }) {
+    return {
+      message: metric(players),
+    }
   }
 
-  async handle({ pluginid }) {
-    const json = await this.fetch({ pluginid })
-    const { players } = this.transform({ json })
-    return this.constructor.render({ players })
+  static get category() {
+    return 'other'
+  }
+  static get examples() {
+    return [
+      {
+        title: 'bStats Players',
+        namedParams: {
+          pluginid: '1',
+        },
+        staticPreview: this.render({ players: 74299 }),
+      },
+    ]
   }
 }

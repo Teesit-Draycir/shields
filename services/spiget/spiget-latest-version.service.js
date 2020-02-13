@@ -1,7 +1,7 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { renderVersionBadge } = require('../version')
+const Joi = require('joi')
+const { renderVersionBadge } = require('../../lib/version')
 const { BaseSpigetService, documentation, keywords } = require('./spiget-base')
 
 const versionSchema = Joi.object({
@@ -10,44 +10,43 @@ const versionSchema = Joi.object({
 }).required()
 
 module.exports = class SpigetLatestVersion extends BaseSpigetService {
-  static get category() {
-    return 'version'
-  }
-
   static get route() {
     return {
       base: 'spiget/version',
-      pattern: ':resourceId',
+      pattern: ':resourceid',
     }
   }
 
+  static get defaultBadgeData() {
+    return {
+      label: 'version',
+      color: 'blue',
+    }
+  }
+
+  async handle({ resourceid }) {
+    const { name } = await this.fetch({
+      resourceid,
+      schema: versionSchema,
+      url: `https://api.spiget.org/v2/resources/${resourceid}/versions/latest`,
+    })
+    return renderVersionBadge({ version: name })
+  }
+
+  static get category() {
+    return 'version'
+  }
   static get examples() {
     return [
       {
         title: 'Spiget Version',
         namedParams: {
-          resourceId: '9089',
+          resourceid: '9089',
         },
         staticPreview: renderVersionBadge({ version: 2.1 }),
         documentation,
         keywords,
       },
     ]
-  }
-
-  static get defaultBadgeData() {
-    return {
-      label: 'spiget',
-      color: 'blue',
-    }
-  }
-
-  async handle({ resourceId }) {
-    const { name } = await this.fetch({
-      resourceId,
-      schema: versionSchema,
-      url: `https://api.spiget.org/v2/resources/${resourceId}/versions/latest`,
-    })
-    return renderVersionBadge({ version: name })
   }
 }

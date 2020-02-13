@@ -1,5 +1,6 @@
 'use strict'
 
+const Joi = require('joi')
 const { ServiceTester } = require('../tester')
 const { invalidJSON } = require('../response-fixtures')
 const { isMetric, isVPlusTripleDottedVersion } = require('../test-validators')
@@ -11,45 +12,47 @@ const t = (module.exports = new ServiceTester({
 
 t.create('Downloads')
   .get('/dm/vim-mode.json')
-  .expectBadge({ label: 'downloads', message: isMetric })
+  .expectJSONTypes(Joi.object().keys({ name: 'downloads', value: isMetric }))
 
 t.create('Version')
   .get('/v/vim-mode.json')
-  .expectBadge({ label: 'apm', message: isVPlusTripleDottedVersion })
+  .expectJSONTypes(
+    Joi.object().keys({ name: 'apm', value: isVPlusTripleDottedVersion })
+  )
 
 t.create('License')
   .get('/l/vim-mode.json')
-  .expectBadge({ label: 'license', message: 'MIT' })
+  .expectJSON({ name: 'license', value: 'MIT' })
 
 t.create('Downloads | Package not found')
   .get('/dm/notapackage.json')
-  .expectBadge({ label: 'downloads', message: 'package not found' })
+  .expectJSON({ name: 'downloads', value: 'package not found' })
 
 t.create('Version | Package not found')
   .get('/v/notapackage.json')
-  .expectBadge({ label: 'apm', message: 'package not found' })
+  .expectJSON({ name: 'apm', value: 'package not found' })
 
 t.create('License | Package not found')
   .get('/l/notapackage.json')
-  .expectBadge({ label: 'license', message: 'package not found' })
+  .expectJSON({ name: 'license', value: 'package not found' })
 
 t.create('Invalid version')
   .get('/dm/vim-mode.json')
   .intercept(nock =>
     nock('https://atom.io')
       .get('/api/packages/vim-mode')
-      .reply(200, '{"releases":{}}')
+      .reply([200, '{"releases":{}}'])
   )
-  .expectBadge({ label: 'downloads', message: 'invalid response data' })
+  .expectJSON({ name: 'downloads', value: 'unparseable json response' })
 
 t.create('Invalid License')
   .get('/l/vim-mode.json')
   .intercept(nock =>
     nock('https://atom.io')
       .get('/api/packages/vim-mode')
-      .reply(200, '{"metadata":{}}')
+      .reply([200, '{"metadata":{}}'])
   )
-  .expectBadge({ label: 'license', message: 'invalid response data' })
+  .expectJSON({ name: 'license', value: 'unparseable json response' })
 
 t.create('Unexpected response')
   .get('/dm/vim-mode.json')
@@ -58,4 +61,4 @@ t.create('Unexpected response')
       .get('/api/packages/vim-mode')
       .reply(invalidJSON)
   )
-  .expectBadge({ label: 'downloads', message: 'unparseable json response' })
+  .expectJSON({ name: 'downloads', value: 'unparseable json response' })

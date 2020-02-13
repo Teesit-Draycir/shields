@@ -1,22 +1,23 @@
 'use strict'
 
-const { isMetric } = require('../test-validators')
+const Joi = require('joi')
+
 const t = (module.exports = require('../tester').createServiceTester())
 
 t.create('Forks')
   .get('/badges/shields.json')
-  .expectBadge({
-    label: 'forks',
-    message: isMetric,
-    link: [
-      'https://github.com/badges/shields/fork',
-      'https://github.com/badges/shields/network',
-    ],
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'forks',
+      value: Joi.number()
+        .integer()
+        .positive(),
+    })
+  )
 
 t.create('Forks (repo not found)')
   .get('/badges/helmets.json')
-  .expectBadge({
-    label: 'forks',
-    message: 'repo not found',
+  .expectJSON({
+    name: 'forks',
+    value: 'repo not found',
   })

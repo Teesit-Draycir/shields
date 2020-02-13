@@ -1,10 +1,10 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const jp = require('jsonpath')
+const { BaseJsonService, InvalidResponse } = require('..')
 const { renderDynamicBadge, errorMessages } = require('../dynamic-common')
-const { createRoute } = require('./dynamic-helpers')
-const { BaseJsonService, InvalidParameter, InvalidResponse } = require('..')
+const { createRoute, queryParamSchema } = require('./dynamic-helpers')
 
 module.exports = class DynamicJson extends BaseJsonService {
   static get category() {
@@ -21,29 +21,21 @@ module.exports = class DynamicJson extends BaseJsonService {
     }
   }
 
-  async handle(namedParams, { url, query: pathExpression, prefix, suffix }) {
+  async handle(namedParams, queryParams) {
+    const {
+      url,
+      query: pathExpression,
+      prefix,
+      suffix,
+    } = this.constructor._validateQueryParams(queryParams, queryParamSchema)
+
     const data = await this._requestJson({
       schema: Joi.any(),
       url,
       errorMessages,
     })
 
-    let values
-    try {
-      values = jp.query(data, pathExpression)
-    } catch (e) {
-      const { message } = e
-      if (
-        message.startsWith('Lexical error') ||
-        message.startsWith('Parse error')
-      ) {
-        throw new InvalidParameter({
-          prettyMessage: 'unparseable jsonpath query',
-        })
-      } else {
-        throw e
-      }
-    }
+    const values = jp.query(data, pathExpression)
 
     if (!values.length) {
       throw new InvalidResponse({ prettyMessage: 'no result' })

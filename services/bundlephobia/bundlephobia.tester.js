@@ -1,7 +1,13 @@
 'use strict'
 
+const Joi = require('joi')
 const { isFileSize } = require('../test-validators')
-const t = (module.exports = require('../tester').createServiceTester())
+const { ServiceTester } = require('../tester')
+
+const t = (module.exports = new ServiceTester({
+  id: 'bundlephobia',
+  title: 'NPM package bundle size',
+}))
 
 const formats = {
   A: '/bundlephobia/:type/:package.:format',
@@ -14,57 +20,57 @@ const data = [
   {
     format: formats.A,
     get: '/min/preact.json',
-    expect: { label: 'minified size', message: isFileSize },
+    expect: { name: 'minified size', value: isFileSize },
   },
   {
     format: formats.B,
     get: '/min/preact/8.0.0.json',
-    expect: { label: 'minified size', message: isFileSize },
+    expect: { name: 'minified size', value: isFileSize },
   },
   {
     format: formats.C,
     get: '/min/@cycle/core.json',
-    expect: { label: 'minified size', message: isFileSize },
+    expect: { name: 'minified size', value: isFileSize },
   },
   {
     format: formats.D,
     get: '/min/@cycle/core/7.0.0.json',
-    expect: { label: 'minified size', message: isFileSize },
+    expect: { name: 'minified size', value: isFileSize },
   },
   {
     format: formats.A,
     get: '/minzip/preact.json',
-    expect: { label: 'minzipped size', message: isFileSize },
+    expect: { name: 'minzipped size', value: isFileSize },
   },
   {
     format: formats.B,
     get: '/minzip/preact/8.0.0.json',
-    expect: { label: 'minzipped size', message: isFileSize },
+    expect: { name: 'minzipped size', value: isFileSize },
   },
   {
     format: formats.C,
     get: '/minzip/@cycle/core.json',
-    expect: { label: 'minzipped size', message: isFileSize },
+    expect: { name: 'minzipped size', value: isFileSize },
   },
   {
     format: formats.D,
     get: '/minzip/@cycle/core/7.0.0.json',
-    expect: { label: 'minzipped size', message: isFileSize },
+    expect: { name: 'minzipped size', value: isFileSize },
   },
   {
     format: formats.A,
     get: '/min/some-no-exist.json',
-    expect: { label: 'bundlephobia', message: 'package or version not found' },
+    expect: { name: 'minified size', value: 'package not found error' },
   },
   {
     format: formats.C,
     get: '/min/@some-no-exist/some-no-exist.json',
-    expect: { label: 'bundlephobia', message: 'package or version not found' },
+    expect: { name: 'minified size', value: 'package not found error' },
   },
 ]
 
 data.forEach(({ format, get, expect }) => {
   t.create(`Testing format '${format}' against '${get}'`)
     .get(get)
-    .expectBadge(expect)
+    .expectJSONTypes(Joi.object().keys(expect))
 })

@@ -1,6 +1,6 @@
 'use strict'
 
-const { formatRelativeDate } = require('../text-formatters')
+const { formatRelativeDate } = require('../../lib/text-formatters')
 const { BaseService } = require('..')
 
 const documentation = `
@@ -10,6 +10,24 @@ const documentation = `
 `
 
 module.exports = class Date extends BaseService {
+  static render({ relativeDateString }) {
+    return {
+      message: relativeDateString,
+      color: relativeDateString === 'invalid date' ? 'grey' : 'blue',
+    }
+  }
+
+  async handle({ timestamp }) {
+    return this.constructor.render({
+      relativeDateString: formatRelativeDate(timestamp),
+    })
+  }
+
+  // Metadata
+  static get defaultBadgeData() {
+    return { label: 'date' }
+  }
+
   static get category() {
     return 'other'
   }
@@ -28,26 +46,9 @@ module.exports = class Date extends BaseService {
         pattern: ':timestamp',
         namedParams: { timestamp: '1540814400' },
         staticPreview: this.render({ relativeDateString: '2 days ago' }),
-        keywords: ['time', 'countdown', 'countup', 'moment'],
+        keywords: ['date', 'time', 'countdown', 'countup', 'moment'],
         documentation,
       },
     ]
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'date' }
-  }
-
-  static render({ relativeDateString }) {
-    return {
-      message: relativeDateString,
-      color: relativeDateString === 'invalid date' ? 'grey' : 'blue',
-    }
-  }
-
-  async handle({ timestamp }) {
-    return this.constructor.render({
-      relativeDateString: formatRelativeDate(timestamp),
-    })
   }
 }

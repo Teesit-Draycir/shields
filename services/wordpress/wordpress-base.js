@@ -1,8 +1,8 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { nonNegativeInteger } = require('../validators')
+const Joi = require('joi')
 const { BaseJsonService, NotFound } = require('..')
+const { nonNegativeInteger } = require('../validators')
 
 const foundSchema = Joi.object()
   .keys({
@@ -21,14 +21,20 @@ const notFoundSchema = Joi.string().allow(null, false)
 const schemas = Joi.alternatives(foundSchema, notFoundSchema)
 
 module.exports = class BaseWordpress extends BaseJsonService {
-  async fetch({ extensionType, slug }) {
-    const url = `https://api.wordpress.org/${extensionType}s/info/1.1/`
-    const json = await this._requestJson({
+  static get extensionType() {
+    throw new Error(`extensionType() function not implemented for ${this.name}`)
+  }
+
+  async fetch({ slug }) {
+    const url = `https://api.wordpress.org/${
+      this.constructor.extensionType
+    }s/info/1.1/`
+    return this._requestJson({
       url,
       schema: schemas,
       options: {
         qs: {
-          action: `${extensionType}_information`,
+          action: `${this.constructor.extensionType}_information`,
           request: {
             slug,
             fields: {
@@ -45,9 +51,15 @@ module.exports = class BaseWordpress extends BaseJsonService {
         },
       },
     })
+  }
+
+  async handle({ slug }) {
+    const json = await this.fetch({ slug })
+
     if (!json) {
       throw new NotFound()
     }
-    return json
+
+    return this.constructor.render({ response: json })
   }
 }

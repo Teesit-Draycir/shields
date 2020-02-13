@@ -1,9 +1,9 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { coveragePercentage } = require('../color-formatters')
-const TeamCityBase = require('./teamcity-base')
+const Joi = require('joi')
+const { coveragePercentage } = require('../../lib/color-formatters')
 const { InvalidResponse } = require('..')
+const TeamCityBase = require('./teamcity-base')
 
 const buildStatisticsSchema = Joi.object({
   property: Joi.array()
@@ -17,16 +17,27 @@ const buildStatisticsSchema = Joi.object({
 }).required()
 
 module.exports = class TeamCityCoverage extends TeamCityBase {
+  static render({ coverage }) {
+    return {
+      message: `${coverage.toFixed(0)}%`,
+      color: coveragePercentage(coverage),
+    }
+  }
+
+  static get defaultBadgeData() {
+    return {
+      label: 'coverage',
+    }
+  }
+
   static get category() {
     return 'coverage'
   }
 
   static get route() {
     return {
-      // Do not base new services on this route pattern.
-      // See https://github.com/badges/shields/issues/3714
       base: 'teamcity/coverage',
-      format: '(?:(http|https)/(.+)/)?([^/]+?)',
+      format: '(?:(http|https)/(.+)/)?([^/]+)',
       capture: ['protocol', 'hostAndPath', 'buildId'],
     }
   }
@@ -48,7 +59,7 @@ module.exports = class TeamCityCoverage extends TeamCityBase {
         pattern: ':protocol/:hostAndPath/s/:buildId',
         namedParams: {
           protocol: 'https',
-          hostAndPath: 'teamcity.jetbrains.com',
+          hostAndPath: 'https/teamcity.jetbrains.com',
           buildId: 'ReactJSNet_PullRequests',
         },
         staticPreview: this.render({
@@ -58,17 +69,21 @@ module.exports = class TeamCityCoverage extends TeamCityBase {
     ]
   }
 
-  static get defaultBadgeData() {
-    return {
-      label: 'coverage',
-    }
-  }
+  async handle({ protocol, hostAndPath, buildId }) {
+    // JetBrains Docs: https://confluence.jetbrains.com/display/TCD18/REST+API#RESTAPI-Statistics
+    const buildLocator = `buildType:(id:${buildId})`
+    const apiPath = `app/rest/builds/${encodeURIComponent(
+      buildLocator
+    )}/statistics`
+    const data = await this.fetch({
+      protocol,
+      hostAndPath,
+      apiPath,
+      schema: buildStatisticsSchema,
+    })
 
-  static render({ coverage }) {
-    return {
-      message: `${coverage.toFixed(0)}%`,
-      color: coveragePercentage(coverage),
-    }
+    const { coverage } = this.transform({ data })
+    return this.constructor.render({ coverage })
   }
 
   transform({ data }) {
@@ -88,22 +103,5 @@ module.exports = class TeamCityCoverage extends TeamCityBase {
     }
 
     throw new InvalidResponse({ prettyMessage: 'no coverage data available' })
-  }
-
-  async handle({ protocol, hostAndPath, buildId }) {
-    // JetBrains Docs: https://confluence.jetbrains.com/display/TCD18/REST+API#RESTAPI-Statistics
-    const buildLocator = `buildType:(id:${buildId})`
-    const apiPath = `app/rest/builds/${encodeURIComponent(
-      buildLocator
-    )}/statistics`
-    const data = await this.fetch({
-      protocol,
-      hostAndPath,
-      apiPath,
-      schema: buildStatisticsSchema,
-    })
-
-    const { coverage } = this.transform({ data })
-    return this.constructor.render({ coverage })
   }
 }

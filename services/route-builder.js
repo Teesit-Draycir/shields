@@ -1,6 +1,6 @@
 'use strict'
 
-const toArray = require('../core/base-service/to-array')
+const { toArray } = require('../lib/badge-data')
 
 /*
  * Factory class for building a BaseService `route` object. This class is useful

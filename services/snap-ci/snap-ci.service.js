@@ -2,25 +2,10 @@
 
 const { deprecatedService } = require('..')
 
-const commonAttrs = {
+module.exports = deprecatedService({
   category: 'build',
+  route: {
+    format: 'snap(?:-ci?)/(?:[^/]+/[^/]+)(?:/(?:.+))',
+  },
   label: 'snap ci',
-  dateAdded: new Date('2018-01-23'),
-}
-
-module.exports = [
-  deprecatedService({
-    route: {
-      base: 'snap',
-      pattern: ':various*',
-    },
-    ...commonAttrs,
-  }),
-  deprecatedService({
-    route: {
-      base: 'snap-ci',
-      pattern: ':various*',
-    },
-    ...commonAttrs,
-  }),
-]
+})

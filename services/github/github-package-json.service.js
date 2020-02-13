@@ -1,7 +1,7 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { renderVersionBadge } = require('../version')
+const Joi = require('joi')
+const { renderVersionBadge } = require('../../lib/version')
 const {
   transformAndValidate,
   renderDynamicBadge,
@@ -11,7 +11,7 @@ const {
   getDependencyVersion,
 } = require('../package-json-helpers')
 const { semver } = require('../validators')
-const { ConditionalGithubAuthV3Service } = require('./github-auth-service')
+const { ConditionalGithubAuthService } = require('./github-auth-service')
 const { fetchJsonFromRepo } = require('./github-common-fetch')
 const { documentation } = require('./github-helpers')
 
@@ -21,7 +21,7 @@ const versionSchema = Joi.object({
   version: semver,
 }).required()
 
-class GithubPackageJsonVersion extends ConditionalGithubAuthV3Service {
+class GithubPackageJsonVersion extends ConditionalGithubAuthService {
   static get category() {
     return 'version'
   }
@@ -78,7 +78,7 @@ class GithubPackageJsonVersion extends ConditionalGithubAuthV3Service {
   }
 }
 
-class GithubPackageJsonDependencyVersion extends ConditionalGithubAuthV3Service {
+class GithubPackageJsonDependencyVersion extends ConditionalGithubAuthService {
   static get category() {
     return 'platform-support'
   }
@@ -171,9 +171,7 @@ class GithubPackageJsonDependencyVersion extends ConditionalGithubAuthV3Service 
   }
 }
 
-// This must be exported after GithubPackageJsonVersion in order for the
-// former to work correctly.
-class DynamicGithubPackageJson extends ConditionalGithubAuthV3Service {
+class DynamicGithubPackageJson extends ConditionalGithubAuthService {
   static get category() {
     return 'other'
   }
@@ -181,7 +179,8 @@ class DynamicGithubPackageJson extends ConditionalGithubAuthV3Service {
   static get route() {
     return {
       base: 'github/package-json',
-      pattern: ':key/:user/:repo/:branch*',
+      format: '(?!v)([^/]+)/([^/]+)/([^/]+)/?([^/]+)?',
+      capture: ['key', 'user', 'repo', 'branch'],
     }
   }
 
@@ -253,8 +252,8 @@ class DynamicGithubPackageJson extends ConditionalGithubAuthV3Service {
   }
 }
 
-module.exports = [
+module.exports = {
   GithubPackageJsonVersion,
   GithubPackageJsonDependencyVersion,
   DynamicGithubPackageJson,
-]
+}

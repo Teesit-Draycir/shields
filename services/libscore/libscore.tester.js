@@ -7,7 +7,7 @@ module.exports = t
 
 t.create('no longer available (previously usage statistics)')
   .get('/s/jQuery.json')
-  .expectBadge({
-    label: 'libscore',
-    message: 'no longer available',
+  .expectJSON({
+    name: 'libscore',
+    value: 'no longer available',
   })

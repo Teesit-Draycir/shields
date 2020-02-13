@@ -9,14 +9,14 @@ const t = (module.exports = new ServiceTester({
 
 t.create('no longer available (previously image size)')
   .get('/image-size/_/ubuntu/latest.json')
-  .expectBadge({
-    label: 'dockbit',
-    message: 'no longer available',
+  .expectJSON({
+    name: 'dockbit',
+    value: 'no longer available',
   })
 
 t.create('no longer available (previously number of layers)')
   .get('/layers/_/ubuntu/latest.json')
-  .expectBadge({
-    label: 'dockbit',
-    message: 'no longer available',
+  .expectJSON({
+    name: 'dockbit',
+    value: 'no longer available',
   })

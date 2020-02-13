@@ -1,28 +1,38 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { isBuildStatus } = require('../build-status')
-const t = (module.exports = require('../tester').createServiceTester())
+const Joi = require('joi')
+const { isBuildStatus } = require('../../lib/build-status')
+const { ServiceTester } = require('../tester')
+
+const t = (module.exports = new ServiceTester({
+  id: 'travis-build',
+  title: 'Travis CI',
+  pathPrefix: '/travis',
+}))
 
 // Travis (.org) CI
 
 t.create('build status on default branch')
   .get('/rust-lang/rust.json')
-  .expectBadge({
-    label: 'build',
-    message: Joi.alternatives().try(isBuildStatus, Joi.equal('unknown')),
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'build',
+      value: Joi.alternatives().try(isBuildStatus, Joi.equal('unknown')),
+    })
+  )
 
 t.create('build status on named branch')
   .get('/rust-lang/rust/stable.json')
-  .expectBadge({
-    label: 'build',
-    message: Joi.alternatives().try(isBuildStatus, Joi.equal('unknown')),
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'build',
+      value: Joi.alternatives().try(isBuildStatus, Joi.equal('unknown')),
+    })
+  )
 
 t.create('unknown repo')
   .get('/this-repo/does-not-exist.json')
-  .expectBadge({ label: 'build', message: 'unknown' })
+  .expectJSON({ name: 'build', value: 'unknown' })
 
 t.create('invalid svg response')
   .get('/foo/bar.json')
@@ -31,27 +41,31 @@ t.create('invalid svg response')
       .get('/foo/bar.svg')
       .reply(200)
   )
-  .expectBadge({ label: 'build', message: 'unparseable svg response' })
+  .expectJSON({ name: 'build', value: 'unparseable svg response' })
 
 // Travis (.com) CI
 
 t.create('build status on default branch')
   .get('/com/ivandelabeldad/rackian-gateway.json')
-  .expectBadge({
-    label: 'build',
-    message: Joi.alternatives().try(isBuildStatus, Joi.equal('unknown')),
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'build',
+      value: Joi.alternatives().try(isBuildStatus, Joi.equal('unknown')),
+    })
+  )
 
 t.create('build status on named branch')
   .get('/com/ivandelabeldad/rackian-gateway.json')
-  .expectBadge({
-    label: 'build',
-    message: Joi.alternatives().try(isBuildStatus, Joi.equal('unknown')),
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'build',
+      value: Joi.alternatives().try(isBuildStatus, Joi.equal('unknown')),
+    })
+  )
 
 t.create('unknown repo')
   .get('/com/this-repo/does-not-exist.json')
-  .expectBadge({ label: 'build', message: 'unknown' })
+  .expectJSON({ name: 'build', value: 'unknown' })
 
 t.create('invalid svg response')
   .get('/com/foo/bar.json')
@@ -60,4 +74,4 @@ t.create('invalid svg response')
       .get('/foo/bar.svg')
       .reply(200)
   )
-  .expectBadge({ label: 'build', message: 'unparseable svg response' })
+  .expectJSON({ name: 'build', value: 'unparseable svg response' })

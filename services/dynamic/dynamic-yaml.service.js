@@ -1,10 +1,10 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const jp = require('jsonpath')
-const { renderDynamicBadge, errorMessages } = require('../dynamic-common')
-const { createRoute } = require('./dynamic-helpers')
 const { BaseYamlService, InvalidResponse } = require('..')
+const { renderDynamicBadge, errorMessages } = require('../dynamic-common')
+const { createRoute, queryParamSchema } = require('./dynamic-helpers')
 
 module.exports = class DynamicYaml extends BaseYamlService {
   static get category() {
@@ -21,7 +21,14 @@ module.exports = class DynamicYaml extends BaseYamlService {
     }
   }
 
-  async handle(namedParams, { url, query: pathExpression, prefix, suffix }) {
+  async handle(namedParams, queryParams) {
+    const {
+      url,
+      query: pathExpression,
+      prefix,
+      suffix,
+    } = this.constructor._validateQueryParams(queryParams, queryParamSchema)
+
     const data = await this._requestYaml({
       schema: Joi.any(),
       url,

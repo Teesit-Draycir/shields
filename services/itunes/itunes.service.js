@@ -1,9 +1,9 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { renderVersionBadge } = require('../version')
-const { nonNegativeInteger } = require('../validators')
+const Joi = require('joi')
+const { renderVersionBadge } = require('../../lib/version')
 const { BaseJsonService, NotFound } = require('..')
+const { nonNegativeInteger } = require('../validators')
 
 const schema = Joi.object({
   resultCount: nonNegativeInteger,
@@ -24,6 +24,10 @@ module.exports = class Itunes extends BaseJsonService {
     }
   }
 
+  static get defaultBadgeData() {
+    return { label: 'itunes app store' }
+  }
+
   static get examples() {
     return [
       {
@@ -32,10 +36,6 @@ module.exports = class Itunes extends BaseJsonService {
         staticPreview: renderVersionBadge({ version: 'v3.3.3' }),
       },
     ]
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'itunes app store' }
   }
 
   async fetch({ bundleId }) {

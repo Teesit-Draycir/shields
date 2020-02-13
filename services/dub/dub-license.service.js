@@ -1,7 +1,7 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { renderLicenseBadge } = require('../licenses')
+const Joi = require('joi')
+const { renderLicenseBadge } = require('../../lib/licenses')
 const { BaseJsonService } = require('..')
 
 const schema = Joi.object({
@@ -20,6 +20,10 @@ module.exports = class DubLicense extends BaseJsonService {
     }
   }
 
+  static get defaultBadgeData() {
+    return { label: 'license' }
+  }
+
   static get examples() {
     return [
       {
@@ -28,10 +32,6 @@ module.exports = class DubLicense extends BaseJsonService {
         staticPreview: renderLicenseBadge({ licenses: ['MIT'] }),
       },
     ]
-  }
-
-  static get defaultBadgeData() {
-    return { label: 'license' }
   }
 
   async fetch({ packageName }) {

@@ -1,6 +1,6 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const Joi = require('joi')
 const { ServiceTester } = require('../tester')
 
 const isDependencyStatus = Joi.string().valid(
@@ -14,11 +14,13 @@ const t = (module.exports = new ServiceTester({ id: 'depfu', title: 'Depfu' }))
 
 t.create('depfu dependencies (valid)')
   .get('/depfu/example-ruby.json')
-  .expectBadge({
-    label: 'dependencies',
-    message: isDependencyStatus,
-  })
+  .expectJSONTypes(
+    Joi.object().keys({
+      name: 'dependencies',
+      value: isDependencyStatus,
+    })
+  )
 
 t.create('depfu dependencies (repo not found)')
   .get('/pyvesb/emptyrepo.json')
-  .expectBadge({ label: 'dependencies', message: 'not found' })
+  .expectJSON({ name: 'dependencies', value: 'not found' })

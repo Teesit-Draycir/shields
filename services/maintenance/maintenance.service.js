@@ -1,8 +1,16 @@
 'use strict'
 
-const { NonMemoryCachingBaseService } = require('..')
+const LegacyService = require('../legacy-service')
+const { makeBadgeData: getBadgeData } = require('../../lib/badge-data')
+const log = require('../../core/server/log')
 
-module.exports = class Maintenance extends NonMemoryCachingBaseService {
+// This legacy service should be rewritten to use e.g. BaseJsonService.
+//
+// Tips for rewriting:
+// https://github.com/badges/shields/blob/master/doc/rewriting-services.md
+//
+// Do not base new services on this code.
+module.exports = class Maintenance extends LegacyService {
   static get category() {
     return 'other'
   }
@@ -10,7 +18,7 @@ module.exports = class Maintenance extends NonMemoryCachingBaseService {
   static get route() {
     return {
       base: 'maintenance',
-      pattern: ':maintained/:year(\\d{4})',
+      pattern: ':maintained(yes|no)/:year(\\d{4})',
     }
   }
 
@@ -18,68 +26,52 @@ module.exports = class Maintenance extends NonMemoryCachingBaseService {
     return [
       {
         title: 'Maintenance',
-        pattern: ':maintained(yes|no)/:year',
+        pattern: ':maintained/:year',
         namedParams: {
           maintained: 'yes',
           year: '2019',
         },
-        staticPreview: this.render({ isMaintained: false, targetYear: '2018' }),
+        staticPreview: {
+          label: 'yes',
+          message: '2019',
+          color: 'brightgreen',
+        },
         keywords: ['maintained'],
       },
     ]
   }
 
-  static get defaultBadgeData() {
-    return {
-      label: 'maintained',
-    }
-  }
-
-  static render({ isMaintained, isStale, targetYear, message }) {
-    if (isMaintained) {
-      return {
-        message,
-        color: 'brightgreen',
-      }
-    }
-
-    return {
-      message: `${isStale ? `stale` : 'no!'} (as of ${targetYear})`,
-      color: isStale ? undefined : 'red',
-    }
-  }
-
-  transform({ maintained, year, currentYear, month }) {
-    if (maintained === 'no') {
-      return { isMaintained: false, targetYear: year }
-    } else if (currentYear <= year) {
-      return { isMaintained: true }
-    } else if (
-      parseInt(currentYear) === parseInt(year) + 1 &&
-      parseInt(month) < 3
-    ) {
-      return { isStale: true, targetYear: currentYear }
-    } else {
-      return { isMaintained: false, targetYear: year }
-    }
-  }
-
-  async handle({ maintained, year }) {
-    const now = new Date()
-    const currentYear = now.getUTCFullYear() // current year.
-    const month = now.getUTCMonth() // month.
-
-    const { isMaintained, isStale, targetYear } = this.transform({
-      maintained,
-      year,
-      currentYear,
-      month,
-    })
-    return this.constructor.render({
-      isMaintained,
-      isStale,
-      targetYear,
-      message: maintained,
-    })
+  static registerLegacyRouteHandler({ camp, cache }) {
+    camp.route(
+      /^\/maintenance\/([^/]+)\/([^/]+)\.(svg|png|gif|jpg|json)$/,
+      cache((data, match, sendBadge, request) => {
+        const status = match[1] // eg, yes
+        const year = +match[2] // eg, 2016
+        const format = match[3]
+        const badgeData = getBadgeData('maintained', data)
+        try {
+          const now = new Date()
+          const cy = now.getUTCFullYear() // current year.
+          const m = now.getUTCMonth() // month.
+          if (status === 'no') {
+            badgeData.text[1] = `no! (as of ${year})`
+            badgeData.colorscheme = 'red'
+          } else if (cy <= year) {
+            badgeData.text[1] = status
+            badgeData.colorscheme = 'brightgreen'
+          } else if (cy === year + 1 && m < 3) {
+            badgeData.text[1] = `stale (as of ${cy})`
+          } else {
+            badgeData.text[1] = `no! (as of ${year})`
+            badgeData.colorscheme = 'red'
+          }
+          sendBadge(format, badgeData)
+        } catch (e) {
+          log.error(e.stack)
+          badgeData.text[1] = 'invalid'
+          sendBadge(format, badgeData)
+        }
+      })
+    )
   }
 }
