@@ -113,3 +113,4 @@ service-definitions.yml
 
 # Rendered API docs
 /api-docs/
+/.vs/slnx.sqlite
