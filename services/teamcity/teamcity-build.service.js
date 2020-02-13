@@ -1,17 +1,16 @@
 'use strict'
 
 const Joi = require('@hapi/joi')
+const { optionalUrl } = require('../validators')
 const TeamCityBase = require('./teamcity-base')
 
-// The statusText field will start with a summary, potentially including test details, followed by an optional suffix.
-// Regex was updated to account for that optional suffix to address reported bugs.
-// See https://github.com/badges/shields/issues/3244 for an example.
-const buildStatusTextRegex = /^Success|Failure|Error|Tests( failed: \d+( \(\d+ new\))?)?(,)?( passed: \d+)?(,)?( ignored: \d+)?(,)?( muted: \d+)?/
 const buildStatusSchema = Joi.object({
   status: Joi.equal('SUCCESS', 'FAILURE', 'ERROR').required(),
-  statusText: Joi.string()
-    .regex(buildStatusTextRegex)
-    .required(),
+  statusText: Joi.string().required(),
+}).required()
+
+const queryParamSchema = Joi.object({
+  server: optionalUrl,
 }).required()
 
 module.exports = class TeamCityBuild extends TeamCityBase {
@@ -21,33 +20,22 @@ module.exports = class TeamCityBuild extends TeamCityBase {
 
   static get route() {
     return {
-      base: 'teamcity',
-      // Do not base new services on this route pattern.
-      // See https://github.com/badges/shields/issues/3714
-      format: '(?:codebetter|(http|https)/(.+)/(s|e))/([^/]+?)',
-      capture: ['protocol', 'hostAndPath', 'verbosity', 'buildId'],
+      base: 'teamcity/build',
+      pattern: ':verbosity(s|e)/:buildId',
+      queryParamSchema,
     }
   }
 
   static get examples() {
     return [
       {
-        title: 'TeamCity Build Status (CodeBetter)',
-        pattern: 'codebetter/:buildId',
+        title: 'TeamCity Simple Build Status',
         namedParams: {
+          verbosity: 's',
           buildId: 'IntelliJIdeaCe_JavaDecompilerEngineTests',
         },
-        staticPreview: this.render({
-          status: 'SUCCESS',
-        }),
-      },
-      {
-        title: 'TeamCity Simple Build Status',
-        pattern: ':protocol/:hostAndPath/s/:buildId',
-        namedParams: {
-          protocol: 'https',
-          hostAndPath: 'teamcity.jetbrains.com',
-          buildId: 'IntelliJIdeaCe_JavaDecompilerEngineTests',
+        queryParams: {
+          server: 'https://teamcity.jetbrains.com',
         },
         staticPreview: this.render({
           status: 'SUCCESS',
@@ -55,11 +43,12 @@ module.exports = class TeamCityBuild extends TeamCityBase {
       },
       {
         title: 'TeamCity Full Build Status',
-        pattern: ':protocol/:hostAndPath/e/:buildId',
         namedParams: {
-          protocol: 'https',
-          hostAndPath: 'teamcity.jetbrains.com',
+          verbosity: 'e',
           buildId: 'bt345',
+        },
+        queryParams: {
+          server: 'https://teamcity.jetbrains.com',
         },
         staticPreview: this.render({
           status: 'FAILURE',
@@ -96,14 +85,15 @@ module.exports = class TeamCityBuild extends TeamCityBase {
     }
   }
 
-  async handle({ protocol, hostAndPath, verbosity, buildId }) {
+  async handle(
+    { verbosity, buildId },
+    { server = 'https://teamcity.jetbrains.com' }
+  ) {
     // JetBrains Docs: https://confluence.jetbrains.com/display/TCD18/REST+API#RESTAPI-BuildStatusIcon
     const buildLocator = `buildType:(id:${buildId})`
     const apiPath = `app/rest/builds/${encodeURIComponent(buildLocator)}`
     const json = await this.fetch({
-      protocol,
-      hostAndPath,
-      apiPath,
+      url: `${server}/${apiPath}`,
       schema: buildStatusSchema,
     })
     // If the verbosity is 'e' then the user has requested the verbose (full) build status.

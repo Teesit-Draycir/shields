@@ -5,22 +5,27 @@ import definitions from '../../../service-definitions.yml'
 export interface Category {
   id: string
   name: string
+  keywords: string[]
+}
+
+export interface ExampleSignature {
+  pattern: string
+  namedParams: { [k: string]: string }
+  queryParams: { [k: string]: string }
+}
+
+export interface Preview {
+  label?: string
+  message: string
+  color: string
+  style?: string
+  namedLogo?: string
 }
 
 export interface Example {
   title: string
-  example: {
-    pattern: string
-    namedParams: { [k: string]: string }
-    queryParams: { [k: string]: string }
-  }
-  preview: {
-    label?: string
-    message: string
-    color: string
-    style?: string
-    namedLogo?: string
-  }
+  example: ExampleSignature
+  preview: Preview
   keywords: string[]
   documentation?: {
     __html: string
@@ -56,3 +61,14 @@ const byCategory = groupBy(services, 'category')
 export function getDefinitionsForCategory(category: string) {
   return byCategory[category]
 }
+
+export interface Suggestion {
+  title: string
+  link: string
+  example: ExampleSignature
+  preview: {
+    style?: string
+  }
+}
+
+export type RenderableExample = Example | Suggestion
