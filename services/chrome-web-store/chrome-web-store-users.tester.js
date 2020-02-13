@@ -21,10 +21,8 @@ const t = (module.exports = new ServiceTester({
 }))
 
 t.create('Downloads (redirect)')
-  .get('/d/alhjnofcnnpeaphgeakdhkebafjcpeae.svg')
-  .expectRedirect(
-    '/chrome-web-store/users/alhjnofcnnpeaphgeakdhkebafjcpeae.svg'
-  )
+  .get('/d/alhjnofcnnpeaphgeakdhkebafjcpeae.json')
+  .expectBadge({ label: 'users', message: isMetric })
 
 t.create('Users')
   .get('/users/alhjnofcnnpeaphgeakdhkebafjcpeae.json')

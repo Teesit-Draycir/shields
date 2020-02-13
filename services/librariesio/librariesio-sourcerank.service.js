@@ -14,7 +14,7 @@ module.exports = class LibrariesIoSourcerank extends BaseJsonService {
   static get route() {
     return {
       base: 'librariesio/sourcerank',
-      pattern: ':platform/:scope(@[^/]+)?/:packageName',
+      pattern: ':platform/:packageName',
     }
   }
 
@@ -22,22 +22,11 @@ module.exports = class LibrariesIoSourcerank extends BaseJsonService {
     return [
       {
         title: 'Libraries.io SourceRank',
-        pattern: ':platform/:packageName',
         namedParams: {
           platform: 'npm',
           packageName: 'got',
         },
         staticPreview: this.render({ rank: 25 }),
-      },
-      {
-        title: 'Libraries.io SourceRank, scoped npm package',
-        pattern: ':platform/:scope/:packageName',
-        namedParams: {
-          platform: 'npm',
-          scope: '@babel',
-          packageName: 'core',
-        },
-        staticPreview: this.render({ rank: 3 }),
       },
     ]
   }
@@ -55,10 +44,9 @@ module.exports = class LibrariesIoSourcerank extends BaseJsonService {
     }
   }
 
-  async handle({ platform, scope, packageName }) {
+  async handle({ platform, packageName }) {
     const { rank } = await fetchProject(this, {
       platform,
-      scope,
       packageName,
     })
     return this.constructor.render({ rank })

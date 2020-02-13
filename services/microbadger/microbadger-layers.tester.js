@@ -1,22 +1,24 @@
 'use strict'
 
-const { nonNegativeInteger } = require('../validators')
+const Joi = require('@hapi/joi')
 const t = (module.exports = require('../tester').createServiceTester())
 
 t.create('layers without a specified tag')
   .get('/_/alpine.json')
-  .timeout(150000)
   .expectBadge({
     label: 'layers',
-    message: nonNegativeInteger,
+    message: Joi.number()
+      .integer()
+      .positive(),
   })
 
 t.create('layers with a specified tag')
   .get('/_/alpine/2.7.json')
-  .timeout(150000)
   .expectBadge({
     label: 'layers',
-    message: nonNegativeInteger,
+    message: Joi.number()
+      .integer()
+      .positive(),
   })
 
 t.create('specified tag when repository has only one')

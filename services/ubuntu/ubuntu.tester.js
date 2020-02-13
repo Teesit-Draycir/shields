@@ -1,17 +1,15 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
+const {
+  isVPlusDottedVersionNClausesWithOptionalSuffixAndEpoch,
+} = require('../test-validators')
 const t = (module.exports = require('../tester').createServiceTester())
-
-const isUbuntuVersion = Joi.string().regex(
-  /^v(\d+:)?\d+(\.\d+)*([\w\\.]*)?([-+~].*)?$/
-)
 
 t.create('Ubuntu package (default distribution, valid)')
   .get('/apt.json')
   .expectBadge({
     label: 'ubuntu',
-    message: isUbuntuVersion,
+    message: isVPlusDottedVersionNClausesWithOptionalSuffixAndEpoch,
   })
 
 t.create('Ubuntu package (valid)')

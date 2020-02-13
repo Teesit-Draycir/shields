@@ -30,7 +30,7 @@ module.exports = class SymfonyInsightGrade extends SymfonyInsightBase {
     ]
   }
 
-  static render({ status, grade = 'none' }) {
+  static render({ status, grade }) {
     const label = 'grade'
     if (status !== 'finished' && status !== '') {
       return {

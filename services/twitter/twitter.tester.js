@@ -19,22 +19,15 @@ t.create('Followers')
     ],
   })
 
-t.create('Invalid Username Specified (non-existent user)')
+t.create('Invalid Username Specified')
   .get('/follow/invalidusernamethatshouldnotexist.json?label=Follow')
   .expectBadge({
     label: 'Follow',
     message: 'invalid user',
   })
 
-t.create('Invalid Username Specified (only spaces)')
-  .get('/follow/%20%20.json?label=Follow')
-  .expectBadge({
-    label: 'Follow',
-    message: 'invalid user',
-  })
-
 t.create('URL')
-  .get('/url.json?url=https://shields.io')
+  .get('/url/https/shields.io.json')
   .expectBadge({
     label: 'tweet',
     message: '',

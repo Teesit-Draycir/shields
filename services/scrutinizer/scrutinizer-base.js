@@ -1,6 +1,6 @@
 'use strict'
 
-const { BaseJsonService, NotFound, InvalidResponse } = require('..')
+const { BaseJsonService, NotFound } = require('..')
 
 module.exports = class ScrutinizerBase extends BaseJsonService {
   // https://scrutinizer-ci.com/docs/api/#repository-details
@@ -16,31 +16,26 @@ module.exports = class ScrutinizerBase extends BaseJsonService {
   }
 
   transformBranchInfo({ json, wantedBranch }) {
-    const branch = wantedBranch || json.default_branch
-    const noBranchInfoMessage = wantedBranch
-      ? 'branch not found'
-      : 'unavailable for default branch'
-
-    const branchInfo = json.applications[branch]
-    if (!branchInfo) {
-      throw new NotFound({ prettyMessage: noBranchInfoMessage })
+    if (!wantedBranch) {
+      return json.applications[json.default_branch]
     }
 
-    return branchInfo
+    const branch = json.applications[wantedBranch]
+    if (!branch) {
+      throw new NotFound({ prettyMessage: ' branch not found' })
+    }
+
+    return branch
   }
 
   transformBranchInfoMetricValue({ json, branch, metric }) {
-    const branchInfo = this.transformBranchInfo({ json, wantedBranch: branch })
-    if (!branchInfo.index) {
-      throw new InvalidResponse({ prettyMessage: 'metrics missing for branch' })
-    }
     const {
       index: {
         _embedded: {
           project: { metric_values: metricValues },
         },
       },
-    } = branchInfo
+    } = this.transformBranchInfo({ json, wantedBranch: branch })
 
     return { value: metricValues[metric] }
   }

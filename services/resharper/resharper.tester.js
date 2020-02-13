@@ -41,16 +41,12 @@ t.create('version (not found)')
 // version (pre)
 
 t.create('version (pre) (valid)')
-  .get('/v/ReSharper.Nuke.json?include_prereleases')
+  .get('/vpre/ReSharper.Nuke.json')
   .expectBadge({
     label: 'resharper',
     message: isVPlusDottedVersionNClausesWithOptionalSuffix,
   })
 
 t.create('version (pre) (not found)')
-  .get('/v/not-a-real-package.json?include_prereleases')
+  .get('/vpre/not-a-real-package.json')
   .expectBadge({ label: 'resharper', message: 'not found' })
-
-t.create('version (legacy redirect: vpre)')
-  .get('/vpre/ReSharper.Nuke.svg')
-  .expectRedirect('/resharper/v/ReSharper.Nuke.svg?include_prereleases')

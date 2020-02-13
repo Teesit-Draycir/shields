@@ -1,6 +1,5 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
 const t = (module.exports = require('../tester').createServiceTester())
 
 t.create('Shields colorscheme color')
@@ -25,11 +24,7 @@ t.create('All one color')
 
 t.create('Not a valid color')
   .get('/badge/label-message-notacolor.json')
-  .expectBadge({
-    label: 'label',
-    message: 'message',
-    color: Joi.forbidden(),
-  })
+  .expectBadge({ label: 'label', message: 'message', color: null })
 
 t.create('Missing message')
   .get('/badge/label--blue.json')

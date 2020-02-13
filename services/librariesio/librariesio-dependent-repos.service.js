@@ -13,7 +13,7 @@ module.exports = class LibrariesIoDependentRepos extends BaseJsonService {
   static get route() {
     return {
       base: 'librariesio/dependent-repos',
-      pattern: ':platform/:scope(@[^/]+)?/:packageName',
+      pattern: ':platform/:packageName',
     }
   }
 
@@ -21,22 +21,11 @@ module.exports = class LibrariesIoDependentRepos extends BaseJsonService {
     return [
       {
         title: 'Dependent repos (via libraries.io)',
-        pattern: ':platform/:packageName',
         namedParams: {
           platform: 'npm',
           packageName: 'got',
         },
         staticPreview: this.render({ dependentReposCount: 84000 }),
-      },
-      {
-        title: 'Dependent repos (via libraries.io), scoped npm package',
-        pattern: ':platform/:scope/:packageName',
-        namedParams: {
-          platform: 'npm',
-          scope: '@babel',
-          packageName: 'core',
-        },
-        staticPreview: this.render({ dependentReposCount: 50 }),
       },
     ]
   }
@@ -54,12 +43,11 @@ module.exports = class LibrariesIoDependentRepos extends BaseJsonService {
     }
   }
 
-  async handle({ platform, scope, packageName }) {
+  async handle({ platform, packageName }) {
     const { dependent_repos_count: dependentReposCount } = await fetchProject(
       this,
       {
         platform,
-        scope,
         packageName,
       }
     )

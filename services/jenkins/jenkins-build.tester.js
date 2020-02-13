@@ -10,17 +10,13 @@ const isJenkinsBuildStatus = Joi.alternatives(
 )
 
 t.create('build job not found')
-  .get('/build.json?jobUrl=https://ci.eclipse.org/jgit/job/does-not-exist')
+  .get('/https/ci.eclipse.org/jgit/job/does-not-exist.json')
   .expectBadge({ label: 'build', message: 'instance or job not found' })
 
 t.create('build found (view)')
-  .get(
-    `/build.json?jobUrl=${encodeURIComponent(
-      'https://wso2.org/jenkins/view/All Builds/job/archetypes'
-    )}`
-  )
+  .get('/https/wso2.org/jenkins/view/All%20Builds/job/archetypes.json')
   .expectBadge({ label: 'build', message: isJenkinsBuildStatus })
 
 t.create('build found (job)')
-  .get('/build.json?jobUrl=https://ci.eclipse.org/jgit/job/jgit')
+  .get('/https/ci.eclipse.org/jgit/job/jgit.json')
   .expectBadge({ label: 'build', message: isJenkinsBuildStatus })

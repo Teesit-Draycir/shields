@@ -9,5 +9,8 @@ const t = (module.exports = new ServiceTester({
 }))
 
 t.create('waffle label redirect')
-  .get('/waffleio/waffle.io.svg')
-  .expectRedirect('/waffle/label/waffleio/waffle.io/ready.svg')
+  .get('/waffleio/waffle.io.svg', {
+    followRedirect: false,
+  })
+  .expectStatus(301)
+  .expectHeader('Location', '/waffle/label/waffleio/waffle.io/ready.svg')

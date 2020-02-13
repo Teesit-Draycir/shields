@@ -1,20 +1,22 @@
 'use strict'
 
+const Joi = require('@hapi/joi')
 const t = (module.exports = require('../tester').createServiceTester())
-const { isValidGrade } = require('./codefactor-helpers')
+const { letterGrades } = require('./codefactor-helpers')
+const codeFactorGrade = Joi.allow(...Object.keys(letterGrades))
 
 t.create('Grade')
   .get('/github/google/guava.json')
   .expectBadge({
     label: 'code quality',
-    message: isValidGrade,
+    message: codeFactorGrade,
   })
 
 t.create('Grade (branch)')
   .get('/github/pallets/flask/master.json')
   .expectBadge({
     label: 'code quality',
-    message: isValidGrade,
+    message: codeFactorGrade,
   })
 
 t.create('Grade (nonexistent repo)')

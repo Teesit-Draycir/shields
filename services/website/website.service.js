@@ -1,7 +1,5 @@
 'use strict'
 
-const Joi = require('@hapi/joi')
-const { optionalUrl } = require('../validators')
 const {
   queryParamSchema,
   exampleQueryParams,
@@ -29,10 +27,6 @@ const documentation = `
 </p>
 `
 
-const urlQueryParamSchema = Joi.object({
-  url: optionalUrl.required(),
-}).required()
-
 module.exports = class Website extends BaseService {
   static get category() {
     return 'monitoring'
@@ -40,9 +34,11 @@ module.exports = class Website extends BaseService {
 
   static get route() {
     return {
-      base: '',
-      pattern: 'website',
-      queryParamSchema: queryParamSchema.concat(urlQueryParamSchema),
+      base: 'website',
+      // Do not base new services on this route pattern.
+      // See https://github.com/badges/shields/issues/3714
+      pattern: ':protocol(https|http)/:hostAndPath+',
+      queryParamSchema,
     }
   }
 
@@ -50,11 +46,11 @@ module.exports = class Website extends BaseService {
     return [
       {
         title: 'Website',
-        namedParams: {},
-        queryParams: {
-          ...exampleQueryParams,
-          ...{ url: 'https://shields.io' },
+        namedParams: {
+          protocol: 'https',
+          hostAndPath: 'shields.io',
         },
+        queryParams: exampleQueryParams,
         staticPreview: renderWebsiteStatus({ isUp: true }),
         documentation,
       },
@@ -68,13 +64,12 @@ module.exports = class Website extends BaseService {
   }
 
   async handle(
-    _routeParams,
+    { protocol, hostAndPath },
     {
       up_message: upMessage,
       down_message: downMessage,
       up_color: upColor,
       down_color: downColor,
-      url,
     }
   ) {
     let isUp
@@ -82,7 +77,7 @@ module.exports = class Website extends BaseService {
       const {
         res: { statusCode },
       } = await this._request({
-        url,
+        url: `${protocol}://${hostAndPath}`,
         options: {
           method: 'HEAD',
         },

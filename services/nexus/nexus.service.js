@@ -10,7 +10,7 @@ const {
 const { isSnapshotVersion } = require('./nexus-version')
 const { BaseJsonService, InvalidResponse, NotFound } = require('..')
 
-const nexus2SearchApiSchema = Joi.object({
+const searchApiSchema = Joi.object({
   data: Joi.array()
     .items(
       Joi.object({
@@ -27,30 +27,20 @@ const nexus2SearchApiSchema = Joi.object({
     .required(),
 }).required()
 
-const nexus3SearchApiSchema = Joi.object({
-  items: Joi.array()
-    .items(
-      Joi.object({
-        // This schema is relaxed similarly to nexux2SearchApiSchema
-        version: Joi.string().required(),
-      })
-    )
-    .required(),
-}).required()
-
-const nexus2ResolveApiSchema = Joi.object({
+const resolveApiSchema = Joi.object({
   data: Joi.object({
     baseVersion: optionalDottedVersionNClausesWithOptionalSuffix,
     version: optionalDottedVersionNClausesWithOptionalSuffix,
   }).required(),
 }).required()
 
+// https://repository.sonatype.org/nexus-restlet1x-plugin/default/docs/path__artifact_maven_resolve.html
+// https://repository.sonatype.org/nexus-indexer-lucene-plugin/default/docs/path__lucene_search.html
 const queryParamSchema = Joi.object({
   server: optionalUrl.required(),
   queryOpt: Joi.string()
-    .regex(/(:[\w.]+=[\w-. ]+)+/i)
+    .regex(/(:(?:q|g|a|v|p|c|cn|sha1|from|count|repositoryId|e|r)=[\w-. ]+)+/i)
     .optional(),
-  nexusVersion: Joi.equal('2', '3'),
 }).required()
 
 module.exports = class Nexus extends BaseJsonService {
@@ -76,22 +66,15 @@ module.exports = class Nexus extends BaseJsonService {
         title: 'Sonatype Nexus (Releases)',
         pattern: 'r/:groupId/:artifactId',
         namedParams: {
-          groupId: 'org.apache.commons',
-          artifactId: 'commons-lang3',
+          groupId: 'com.google.guava',
+          artifactId: 'guava',
         },
         queryParams: {
-          server: 'https://nexus.pentaho.org',
-          nexusVersion: '3',
+          server: 'https://oss.sonatype.org',
         },
         staticPreview: this.render({
-          version: '3.9',
+          version: 'v27.0.1-jre',
         }),
-        documentation: `
-        <p>
-          Specifying 'nexusVersion=3' when targeting Nexus 3 servers will speed up the badge rendering. 
-          Note that you can use this query parameter with any Nexus badge type (Releases, Snapshots, or Repository).
-        </p>
-        `,
       },
       {
         title: 'Sonatype Nexus (Snapshots)',
@@ -144,14 +127,6 @@ module.exports = class Nexus extends BaseJsonService {
         <p>
           Query options should be provided as key=value pairs separated by a colon.
         </p>
-        <p>
-          Possible values:
-          <ul>
-            <li><a href="https://nexus.pentaho.org/swagger-ui/#/search/search">All Nexus 3 badges</a></li>
-            <li><a href="https://repository.sonatype.org/nexus-restlet1x-plugin/default/docs/path__artifact_maven_resolve.html">Nexus 2 Releases and Snapshots badges</a></li>
-            <li><a href=https://repository.sonatype.org/nexus-indexer-lucene-plugin/default/docs/path__lucene_search.html">Nexus 2 Repository badges</a></li>
-          </ul>
-        </p>
         `,
       },
     ]
@@ -182,23 +157,7 @@ module.exports = class Nexus extends BaseJsonService {
     })
   }
 
-  async fetch({ server, repo, groupId, artifactId, queryOpt, nexusVersion }) {
-    if (nexusVersion === '3') {
-      return this.fetch3({ server, repo, groupId, artifactId, queryOpt })
-    }
-    // Most servers still use Nexus 2. Fall back to Nexus 3 if the hitting a
-    // Nexus 2 endpoint returns a Bad Request (=> InvalidResponse).
-    try {
-      return await this.fetch2({ server, repo, groupId, artifactId, queryOpt })
-    } catch (e) {
-      if (e instanceof InvalidResponse) {
-        return this.fetch3({ server, repo, groupId, artifactId, queryOpt })
-      }
-      throw e
-    }
-  }
-
-  async fetch2({ server, repo, groupId, artifactId, queryOpt }) {
+  async fetch({ server, repo, groupId, artifactId, queryOpt }) {
     const qs = {
       g: groupId,
       a: artifactId,
@@ -209,10 +168,10 @@ module.exports = class Nexus extends BaseJsonService {
     // for /nexus/[rs]/... pattern, use the search api of the nexus server, and
     // for /nexus/<repo-name>/... pattern, use the resolve api of the nexus server.
     if (repo === 'r' || repo === 's') {
-      schema = nexus2SearchApiSchema
+      schema = searchApiSchema
       url += 'service/local/lucene/search'
     } else {
-      schema = nexus2ResolveApiSchema
+      schema = resolveApiSchema
       url += 'service/local/artifact/maven/resolve'
       qs.r = repo
       qs.v = 'LATEST'
@@ -231,48 +190,10 @@ module.exports = class Nexus extends BaseJsonService {
       },
     })
 
-    return { actualNexusVersion: '2', json }
+    return { json }
   }
 
-  async fetch3({ server, repo, groupId, artifactId, queryOpt }) {
-    const qs = {
-      group: groupId,
-      name: artifactId,
-      sort: 'version',
-    }
-    if (repo === 's') {
-      qs.prerelease = 'true'
-    } else if (repo !== 'r') {
-      qs.repository = repo
-    }
-
-    if (queryOpt) {
-      this.addQueryParamsToQueryString({ qs, queryOpt })
-    }
-
-    const url = `${server}${
-      server.slice(-1) === '/' ? '' : '/'
-    }service/rest/v1/search`
-
-    const json = await this._requestJson({
-      schema: nexus3SearchApiSchema,
-      url,
-      options: { qs, auth: this.authHelper.basicAuth },
-      errorMessages: {
-        404: 'artifact not found',
-      },
-    })
-
-    return { actualNexusVersion: '3', json }
-  }
-
-  transform({ repo, json, actualNexusVersion }) {
-    return actualNexusVersion === '3'
-      ? this.transform3({ repo, json })
-      : this.transform2({ repo, json })
-  }
-
-  transform2({ repo, json }) {
+  transform({ repo, json }) {
     if (json.data.length === 0) {
       throw new NotFound({ prettyMessage: 'artifact or version not found' })
     }
@@ -303,30 +224,16 @@ module.exports = class Nexus extends BaseJsonService {
     }
   }
 
-  transform3({ repo, json }) {
-    if (json.items.length === 0) {
-      const versionType = repo === 's' ? 'snapshot ' : ''
-      throw new NotFound({
-        prettyMessage: `artifact or ${versionType}version not found`,
-      })
-    }
-    return { version: json.items[0].version }
-  }
-
-  async handle(
-    { repo, groupId, artifactId },
-    { server, queryOpt, nexusVersion }
-  ) {
-    const { actualNexusVersion, json } = await this.fetch({
+  async handle({ repo, groupId, artifactId }, { server, queryOpt }) {
+    const { json } = await this.fetch({
       repo,
       server,
       groupId,
       artifactId,
       queryOpt,
-      nexusVersion,
     })
 
-    const { version } = this.transform({ repo, json, actualNexusVersion })
+    const { version } = this.transform({ repo, json })
     return this.constructor.render({ version })
   }
 }

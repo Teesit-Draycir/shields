@@ -2,31 +2,16 @@
 
 const Joi = require('@hapi/joi')
 const { renderLicenseBadge } = require('../licenses')
-const { optionalUrl } = require('../validators')
-const {
-  keywords,
-  BasePackagistService,
-  customServerDocumentationFragment,
-} = require('./packagist-base')
-const { NotFound } = require('..')
-
-const packageSchema = Joi.object()
-  .pattern(
-    /^/,
-    Joi.object({
-      license: Joi.array().required(),
-    }).required()
-  )
-  .required()
+const { keywords, BasePackagistService } = require('./packagist-base')
 
 const schema = Joi.object({
-  packages: Joi.object()
-    .pattern(/^/, packageSchema)
-    .required(),
-}).required()
-
-const queryParamSchema = Joi.object({
-  server: optionalUrl,
+  package: Joi.object({
+    versions: Joi.object({
+      'dev-master': Joi.object({
+        license: Joi.array().required(),
+      }).required(),
+    }).required(),
+  }).required(),
 }).required()
 
 module.exports = class PackagistLicense extends BasePackagistService {
@@ -38,7 +23,6 @@ module.exports = class PackagistLicense extends BasePackagistService {
     return {
       base: 'packagist/l',
       pattern: ':user/:repo',
-      queryParamSchema,
     }
   }
 
@@ -50,14 +34,6 @@ module.exports = class PackagistLicense extends BasePackagistService {
         staticPreview: renderLicenseBadge({ license: 'MIT' }),
         keywords,
       },
-      {
-        title: 'Packagist (custom server)',
-        namedParams: { user: 'doctrine', repo: 'orm' },
-        queryParams: { server: 'https://packagist.org' },
-        staticPreview: renderLicenseBadge({ license: 'MIT' }),
-        keywords,
-        documentation: customServerDocumentationFragment,
-      },
     ]
   }
 
@@ -67,19 +43,13 @@ module.exports = class PackagistLicense extends BasePackagistService {
     }
   }
 
-  transform({ json, user, repo }) {
-    const packageName = this.getPackageName(user, repo)
-    const branch = json.packages[packageName]['dev-master']
-    if (!branch) {
-      throw new NotFound({ prettyMessage: 'default branch not found' })
-    }
-    const { license } = branch
-    return { license }
+  transform({ json }) {
+    return { license: json.package.versions['dev-master'].license }
   }
 
-  async handle({ user, repo }, { server }) {
-    const json = await this.fetch({ user, repo, schema, server })
-    const { license } = this.transform({ json, user, repo })
+  async handle({ user, repo }) {
+    const json = await this.fetch({ user, repo, schema })
+    const { license } = this.transform({ json })
     return renderLicenseBadge({ license })
   }
 }

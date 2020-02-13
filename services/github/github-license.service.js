@@ -32,6 +32,7 @@ module.exports = class GithubLicense extends GithubAuthV3Service {
           message: 'MIT',
           color: 'green',
         },
+        keywords: ['license'],
         documentation,
       },
     ]

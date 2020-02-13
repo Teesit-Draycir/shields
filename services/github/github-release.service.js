@@ -19,10 +19,9 @@ const queryParamSchema = Joi.object({
     .default('date'),
 }).required()
 
-const releaseInfoArraySchema = Joi.alternatives().try(
-  Joi.array().items(releaseInfoSchema),
-  Joi.array().length(0)
-)
+const releaseInfoArraySchema = Joi.array()
+  .items(releaseInfoSchema)
+  .required()
 
 class GithubRelease extends GithubAuthV3Service {
   static get category() {
@@ -110,25 +109,21 @@ class GithubRelease extends GithubAuthV3Service {
 
   static getLatestRelease({ releases, sort, includePrereleases }) {
     if (sort === 'semver') {
-      const latestRelease = latest(
-        releases.map(release => release.tag_name),
-        {
-          pre: includePrereleases,
-        }
-      )
+      const latestRelease = latest(releases.map(release => release.tag_name), {
+        pre: includePrereleases,
+      })
       const kvpairs = Object.assign(
         ...releases.map(release => ({ [release.tag_name]: release.prerelease }))
       )
       return { tag_name: latestRelease, prerelease: kvpairs[latestRelease] }
     }
-
     if (!includePrereleases) {
       const stableReleases = releases.filter(release => !release.prerelease)
       if (stableReleases.length > 0) {
         return stableReleases[0]
       }
+      return releases[0]
     }
-
     return releases[0]
   }
 
@@ -136,8 +131,9 @@ class GithubRelease extends GithubAuthV3Service {
     const sort = queryParams.sort
     const includePrereleases = queryParams.include_prereleases !== undefined
 
+    let latestRelease
     if (!includePrereleases && sort === 'date') {
-      const latestRelease = await fetchLatestRelease(this, { user, repo })
+      latestRelease = await fetchLatestRelease(this, { user, repo })
       return this.constructor.render({
         version: latestRelease.tag_name,
         sort,
@@ -146,10 +142,9 @@ class GithubRelease extends GithubAuthV3Service {
     }
 
     const releases = await this.fetchReleases({ user, repo })
-    if (releases.length === 0) {
-      throw new NotFound({ prettyMessage: 'no releases' })
-    }
-    const latestRelease = this.constructor.getLatestRelease({
+    if (releases.length === 0)
+      throw new NotFound({ prettyMessage: 'no releases found' })
+    latestRelease = this.constructor.getLatestRelease({
       releases,
       sort,
       includePrereleases,

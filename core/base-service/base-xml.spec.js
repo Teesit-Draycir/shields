@@ -49,9 +49,7 @@ describe('BaseXmlService', function() {
 
       expect(sendAndCacheRequest).to.have.been.calledOnceWith(
         'http://example.com/foo.xml',
-        {
-          headers: { Accept: 'application/xml, text/xml' },
-        }
+        { headers: { Accept: 'application/xml, text/xml' } }
       )
     })
 

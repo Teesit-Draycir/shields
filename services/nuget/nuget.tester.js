@@ -11,7 +11,6 @@ const {
   nuGetV3VersionJsonWithDash,
   nuGetV3VersionJsonFirstCharZero,
   nuGetV3VersionJsonFirstCharNotZero,
-  nuGetV3VersionJsonBuildMetadataWithDash,
 } = require('../nuget-fixtures')
 const { invalidJSON } = require('../response-fixtures')
 
@@ -112,25 +111,6 @@ t.create('version (blue badge)')
   .expectBadge({
     label: 'nuget',
     message: 'v1.2.7',
-    color: 'blue',
-  })
-
-// https://github.com/badges/shields/issues/4219
-t.create('version (build metadata with -)')
-  .get('/v/MongoFramework.json')
-  .intercept(nock =>
-    nock('https://api.nuget.org')
-      .get('/v3/index.json')
-      .reply(200, queryIndex)
-  )
-  .intercept(nock =>
-    nock('https://api-v2v3search-0.nuget.org')
-      .get('/query?q=packageid%3Amongoframework&prerelease=true&semVerLevel=2')
-      .reply(200, nuGetV3VersionJsonBuildMetadataWithDash)
-  )
-  .expectBadge({
-    label: 'nuget',
-    message: 'v1.17.0',
     color: 'blue',
   })
 

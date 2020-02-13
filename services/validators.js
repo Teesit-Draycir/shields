@@ -1,9 +1,6 @@
 'use strict'
 
-const { semver, semverRange } = require('joi-extension-semver')
-const Joi = require('@hapi/joi')
-  .extend(semver)
-  .extend(semverRange)
+const Joi = require('@hapi/joi').extend(require('joi-extension-semver'))
 
 const optionalNonNegativeInteger = Joi.number()
   .integer()
@@ -22,8 +19,8 @@ module.exports = {
     .valid()
     .required(),
 
-  semverRange: Joi.semverRange()
-    .valid()
+  semverRange: Joi.semver()
+    .validRange()
     .required(),
 
   optionalDottedVersionNClausesWithOptionalSuffix: Joi.string().regex(

@@ -9,7 +9,6 @@ const keywords = ['node']
 
 // Joi.string should be a semver.
 const schema = Joi.object()
-  .keys({ latest: Joi.string().required() })
   .pattern(/./, Joi.string())
   .required()
 

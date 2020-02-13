@@ -14,7 +14,7 @@ const t = (module.exports = new ServiceTester({
 // version tests
 
 t.create('version (valid)')
-  .get('/version/visual-studio-code-bin.json')
+  .get('/version/dropbox.json')
   .expectBadge({
     label: 'aur',
     message: isVPlusDottedVersionNClausesWithOptionalSuffix,
@@ -49,13 +49,9 @@ t.create('votes (not found)')
 // license tests
 
 t.create('license (valid)')
-  .get('/license/vscodium-bin.json')
+  .get('/license/pac.json')
   .expectBadge({ label: 'license', message: 'MIT' })
 
-t.create('license (no license)')
-  .get('/license/dns-zone-blacklist-git.json')
-  .expectBadge({ label: 'license', message: 'not specified' })
-
-t.create('license (package not found)')
+t.create('license (not found)')
   .get('/license/not-a-package.json')
   .expectBadge({ label: 'license', message: 'package not found' })

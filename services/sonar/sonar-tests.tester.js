@@ -14,18 +14,6 @@ const {
   isCustomCompactTestTotals,
 } = require('../test-validators')
 const { isIntegerPercentage, isMetric } = require('../test-validators')
-const isMetricAllowZero = Joi.alternatives(
-  isMetric,
-  Joi.number()
-    .valid(0)
-    .required()
-)
-
-// The service tests targeting the legacy SonarQube API are mocked
-// because of the lack of publicly accessible, self-hosted, legacy SonarQube instances
-// See https://github.com/badges/shields/issues/4221#issuecomment-546611598 for more details
-// This is an uncommon scenario Shields has to support for Sonar, and should not be used as a model
-// for other service tests.
 
 t.create('Tests')
   .timeout(10000)
@@ -38,40 +26,13 @@ t.create('Tests')
   })
 
 t.create('Tests (legacy API supported)')
+  .timeout(10000)
   .get(
     '/tests/org.ow2.petals%3Apetals-se-ase.json?server=http://sonar.petalslink.com&sonarVersion=4.2'
   )
-  .intercept(nock =>
-    nock('http://sonar.petalslink.com/api')
-      .get('/resources')
-      .query({
-        resource: 'org.ow2.petals:petals-se-ase',
-        depth: 0,
-        metrics: 'tests,test_failures,skipped_tests',
-        includeTrends: true,
-      })
-      .reply(200, [
-        {
-          msr: [
-            {
-              key: 'tests',
-              val: '71',
-            },
-            {
-              key: 'test_failures',
-              val: '2',
-            },
-            {
-              key: 'skipped_tests',
-              val: '1',
-            },
-          ],
-        },
-      ])
-  )
   .expectBadge({
     label: 'tests',
-    message: '68 passed, 2 failed, 1 skipped',
+    message: isDefaultTestTotals,
   })
 
 t.create('Tests with compact message')
@@ -123,32 +84,13 @@ t.create('Total Test Count')
   })
 
 t.create('Total Test Count (legacy API supported)')
+  .timeout(10000)
   .get(
     '/total_tests/org.ow2.petals%3Apetals-se-ase.json?server=http://sonar.petalslink.com&sonarVersion=4.2'
   )
-  .intercept(nock =>
-    nock('http://sonar.petalslink.com/api')
-      .get('/resources')
-      .query({
-        resource: 'org.ow2.petals:petals-se-ase',
-        depth: 0,
-        metrics: 'tests',
-        includeTrends: true,
-      })
-      .reply(200, [
-        {
-          msr: [
-            {
-              key: 'tests',
-              val: '132',
-            },
-          ],
-        },
-      ])
-  )
   .expectBadge({
     label: 'total tests',
-    message: '132',
+    message: isMetric,
   })
 
 t.create('Test Failures Count')
@@ -158,36 +100,17 @@ t.create('Test Failures Count')
   )
   .expectBadge({
     label: 'test failures',
-    message: isMetricAllowZero,
+    message: Joi.alternatives(isMetric, 0),
   })
 
 t.create('Test Failures Count (legacy API supported)')
+  .timeout(10000)
   .get(
     '/test_failures/org.ow2.petals%3Apetals-se-ase.json?server=http://sonar.petalslink.com&sonarVersion=4.2'
   )
-  .intercept(nock =>
-    nock('http://sonar.petalslink.com/api')
-      .get('/resources')
-      .query({
-        resource: 'org.ow2.petals:petals-se-ase',
-        depth: 0,
-        metrics: 'test_failures',
-        includeTrends: true,
-      })
-      .reply(200, [
-        {
-          msr: [
-            {
-              key: 'test_failures',
-              val: '2',
-            },
-          ],
-        },
-      ])
-  )
   .expectBadge({
     label: 'test failures',
-    message: '2',
+    message: Joi.alternatives(isMetric, 0),
   })
 
 t.create('Test Errors Count')
@@ -197,36 +120,17 @@ t.create('Test Errors Count')
   )
   .expectBadge({
     label: 'test errors',
-    message: isMetricAllowZero,
+    message: Joi.alternatives(isMetric, 0),
   })
 
 t.create('Test Errors Count (legacy API supported)')
+  .timeout(10000)
   .get(
     '/test_errors/org.ow2.petals%3Apetals-se-ase.json?server=http://sonar.petalslink.com&sonarVersion=4.2'
   )
-  .intercept(nock =>
-    nock('http://sonar.petalslink.com/api')
-      .get('/resources')
-      .query({
-        resource: 'org.ow2.petals:petals-se-ase',
-        depth: 0,
-        metrics: 'test_errors',
-        includeTrends: true,
-      })
-      .reply(200, [
-        {
-          msr: [
-            {
-              key: 'test_errors',
-              val: '3',
-            },
-          ],
-        },
-      ])
-  )
   .expectBadge({
     label: 'test errors',
-    message: '3',
+    message: Joi.alternatives(isMetric, 0),
   })
 
 t.create('Skipped Tests Count')
@@ -236,36 +140,17 @@ t.create('Skipped Tests Count')
   )
   .expectBadge({
     label: 'skipped tests',
-    message: isMetricAllowZero,
+    message: Joi.alternatives(isMetric, 0),
   })
 
 t.create('Skipped Tests Count (legacy API supported)')
+  .timeout(10000)
   .get(
     '/skipped_tests/org.ow2.petals%3Apetals-se-ase.json?server=http://sonar.petalslink.com&sonarVersion=4.2'
   )
-  .intercept(nock =>
-    nock('http://sonar.petalslink.com/api')
-      .get('/resources')
-      .query({
-        resource: 'org.ow2.petals:petals-se-ase',
-        depth: 0,
-        metrics: 'skipped_tests',
-        includeTrends: true,
-      })
-      .reply(200, [
-        {
-          msr: [
-            {
-              key: 'skipped_tests',
-              val: '1',
-            },
-          ],
-        },
-      ])
-  )
   .expectBadge({
     label: 'skipped tests',
-    message: '1',
+    message: Joi.alternatives(isMetric, 0),
   })
 
 t.create('Test Success Rate')
@@ -279,30 +164,11 @@ t.create('Test Success Rate')
   })
 
 t.create('Test Success Rate (legacy API supported)')
+  .timeout(10000)
   .get(
     '/test_success_density/org.ow2.petals%3Apetals-se-ase.json?server=http://sonar.petalslink.com&sonarVersion=4.2'
   )
-  .intercept(nock =>
-    nock('http://sonar.petalslink.com/api')
-      .get('/resources')
-      .query({
-        resource: 'org.ow2.petals:petals-se-ase',
-        depth: 0,
-        metrics: 'test_success_density',
-        includeTrends: true,
-      })
-      .reply(200, [
-        {
-          msr: [
-            {
-              key: 'test_success_density',
-              val: '97',
-            },
-          ],
-        },
-      ])
-  )
   .expectBadge({
     label: 'tests',
-    message: '97%',
+    message: isIntegerPercentage,
   })

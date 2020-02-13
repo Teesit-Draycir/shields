@@ -22,14 +22,6 @@ const factory = superclass =>
       this.intercepted = false
     }
 
-    get(uri, options = { followRedirect: false }) {
-      if (!options.followRedirect) {
-        options.followRedirect = false
-      }
-      super.get(uri, options)
-      return this
-    }
-
     intercept(setup) {
       super.intercept(setup)
       this.intercepted = true
@@ -59,28 +51,13 @@ const factory = superclass =>
       })
     }
 
-    expectRedirect(location) {
-      return this.expectStatus(301).expectHeader('Location', location)
-    }
-
     static _expectField(json, name, expected) {
-      if (typeof expected === 'undefined') return
-      if (typeof expected === 'string' || typeof expected === 'number') {
+      if (typeof expected === 'string') {
         expect(json[name], `${name} mismatch`).to.equal(expected)
       } else if (Array.isArray(expected)) {
         expect(json[name], `${name} mismatch`).to.deep.equal(expected)
-      } else if (Joi.isSchema(expected)) {
+      } else if (typeof expected === 'object') {
         Joi.attempt(json[name], expected, `${name} mismatch:`)
-      } else if (expected instanceof RegExp) {
-        Joi.attempt(
-          json[name],
-          Joi.string().regex(expected),
-          `${name} mismatch:`
-        )
-      } else {
-        throw new Error(
-          "'expected' must be a string, a number, a regex, an array or a Joi schema"
-        )
       }
     }
   }

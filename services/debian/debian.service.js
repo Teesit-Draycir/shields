@@ -2,7 +2,7 @@
 
 const Joi = require('@hapi/joi')
 const { latest, renderVersionBadge } = require('../version')
-const { BaseJsonService, NotFound, InvalidResponse } = require('..')
+const { BaseJsonService, NotFound } = require('..')
 
 const schema = Joi.array()
   .items(
@@ -62,15 +62,10 @@ module.exports = class Debian extends BaseJsonService {
     // Distribution can change compared to request, for example requesting
     // "stretch" may map to "stable" in results, so can't use value from
     // request as is. Just take the first one instead.
-    const packageData = data[0][packageName]
-    if (!packageData) {
-      throw new InvalidResponse({ prettyMessage: 'invalid response data' })
+    for (const resultdist of Object.keys(data[0][packageName])) {
+      const versions = Object.keys(data[0][packageName][resultdist])
+      return renderVersionBadge({ version: latest(versions) })
     }
-    const distKeys = Object.keys(packageData)
-    if (!distKeys) {
-      throw new NotFound()
-    }
-    const versions = Object.keys(packageData[distKeys[0]])
-    return renderVersionBadge({ version: latest(versions) })
+    throw new NotFound()
   }
 }

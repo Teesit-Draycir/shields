@@ -28,14 +28,11 @@ describe('TeamCityCoverage', function() {
       })
 
     expect(
-      await TeamCityCoverage.invoke(
-        defaultContext,
-        config,
-        {
-          buildId: 'bt678',
-        },
-        { server: 'https://mycompany.teamcity.com' }
-      )
+      await TeamCityCoverage.invoke(defaultContext, config, {
+        protocol: 'https',
+        hostAndPath: 'mycompany.teamcity.com',
+        buildId: 'bt678',
+      })
     ).to.deep.equal({
       message: '82%',
       color: 'yellowgreen',

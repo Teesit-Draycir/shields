@@ -1,20 +1,17 @@
 'use strict'
 
 const Joi = require('@hapi/joi')
-const { optionalUrl } = require('../validators')
 const { renderVersionBadge } = require('../version')
 const { BaseXmlService } = require('..')
-
-const queryParamSchema = Joi.object({
-  metadataUrl: optionalUrl.required(),
-}).required()
 
 const schema = Joi.object({
   metadata: Joi.object({
     versioning: Joi.object({
       versions: Joi.object({
         version: Joi.array()
-          .items(Joi.string().required())
+          .items(
+            Joi.alternatives(Joi.string().required(), Joi.number().required())
+          )
           .single()
           .required(),
       }).required(),
@@ -29,9 +26,10 @@ module.exports = class MavenMetadata extends BaseXmlService {
 
   static get route() {
     return {
-      base: 'maven-metadata',
-      pattern: 'v',
-      queryParamSchema,
+      base: 'maven-metadata/v',
+      // Do not base new services on this route pattern.
+      // See https://github.com/badges/shields/issues/3714
+      pattern: ':protocol(http|https)/:hostAndPath+',
     }
   }
 
@@ -39,10 +37,10 @@ module.exports = class MavenMetadata extends BaseXmlService {
     return [
       {
         title: 'Maven metadata URL',
-        namedParams: {},
-        queryParams: {
-          metadataUrl:
-            'https://repo1.maven.org/maven2/com/google/code/gson/gson/maven-metadata.xml',
+        namedParams: {
+          protocol: 'http',
+          hostAndPath:
+            'central.maven.org/maven2/com/google/code/gson/gson/maven-metadata.xml',
         },
         staticPreview: renderVersionBadge({ version: '2.8.5' }),
       },
@@ -53,16 +51,13 @@ module.exports = class MavenMetadata extends BaseXmlService {
     return { label: 'maven' }
   }
 
-  async fetch({ metadataUrl }) {
-    return this._requestXml({
-      schema,
-      url: metadataUrl,
-      parserOptions: { parseNodeValue: false },
-    })
+  async fetch({ protocol, hostAndPath }) {
+    const url = `${protocol}://${hostAndPath}`
+    return this._requestXml({ schema, url })
   }
 
-  async handle(_namedParams, { metadataUrl }) {
-    const data = await this.fetch({ metadataUrl })
+  async handle({ protocol, hostAndPath }) {
+    const data = await this.fetch({ protocol, hostAndPath })
     return renderVersionBadge({
       version: data.metadata.versioning.versions.version.slice(-1)[0],
     })

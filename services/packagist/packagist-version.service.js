@@ -3,48 +3,38 @@
 const Joi = require('@hapi/joi')
 const { renderVersionBadge } = require('../version')
 const { compare, isStable, latest } = require('../php-version')
-const { optionalUrl } = require('../validators')
 const {
   allVersionsSchema,
   keywords,
   BasePackagistService,
-  customServerDocumentationFragment,
 } = require('./packagist-base')
-const { NotFound, redirector } = require('..')
-
-const packageSchema = Joi.object()
-  .pattern(
-    /^/,
-    Joi.object({
-      version: Joi.string(),
-      extra: Joi.object({
-        'branch-alias': Joi.object().pattern(/^/, Joi.string()),
-      }),
-    }).required()
-  )
-  .required()
+const { NotFound } = require('..')
 
 const schema = Joi.object({
-  packages: Joi.object()
-    .pattern(/^/, packageSchema)
-    .required(),
+  package: Joi.object({
+    versions: Joi.object()
+      .pattern(
+        /^/,
+        Joi.object({
+          version: Joi.string().required(),
+          extra: Joi.object({
+            'branch-alias': Joi.object().pattern(/^/, Joi.string()),
+          }),
+        })
+      )
+      .required(),
+  }).required(),
 }).required()
 
-const queryParamSchema = Joi.object({
-  server: optionalUrl,
-  include_prereleases: Joi.equal(''),
-}).required()
-
-class PackagistVersion extends BasePackagistService {
+module.exports = class PackagistVersion extends BasePackagistService {
   static get category() {
     return 'version'
   }
 
   static get route() {
     return {
-      base: 'packagist/v',
-      pattern: ':user/:repo',
-      queryParamSchema,
+      base: 'packagist',
+      pattern: ':type(v|vpre)/:user/:repo',
     }
   }
 
@@ -52,6 +42,7 @@ class PackagistVersion extends BasePackagistService {
     return [
       {
         title: 'Packagist Version',
+        pattern: 'v/:user/:repo',
         namedParams: {
           user: 'symfony',
           repo: 'symfony',
@@ -60,27 +51,14 @@ class PackagistVersion extends BasePackagistService {
         keywords,
       },
       {
-        title: 'Packagist Version (including pre-releases)',
+        title: 'Packagist Pre Release Version',
+        pattern: 'vpre/:user/:repo',
         namedParams: {
           user: 'symfony',
           repo: 'symfony',
         },
-        queryParams: { include_prereleases: null },
         staticPreview: renderVersionBadge({ version: '4.3-dev' }),
         keywords,
-      },
-      {
-        title: 'Packagist Version (custom server)',
-        namedParams: {
-          user: 'symfony',
-          repo: 'symfony',
-        },
-        queryParams: {
-          server: 'https://packagist.org',
-        },
-        staticPreview: renderVersionBadge({ version: '4.2.2' }),
-        keywords,
-        documentation: customServerDocumentationFragment,
       },
     ]
   }
@@ -98,8 +76,8 @@ class PackagistVersion extends BasePackagistService {
     return renderVersionBadge({ version })
   }
 
-  transform({ includePrereleases, json, user, repo }) {
-    const versionsData = json.packages[this.getPackageName(user, repo)]
+  transform({ type, json }) {
+    const versionsData = json.package.versions
     let versions = Object.keys(versionsData)
     const aliasesMap = {}
     versions.forEach(version => {
@@ -123,7 +101,7 @@ class PackagistVersion extends BasePackagistService {
 
     versions = versions.filter(version => !/^dev-/.test(version))
 
-    if (includePrereleases) {
+    if (type === 'vpre') {
       return { version: latest(versions) }
     } else {
       const stableVersion = latest(versions.filter(isStable))
@@ -131,28 +109,13 @@ class PackagistVersion extends BasePackagistService {
     }
   }
 
-  async handle({ user, repo }, { include_prereleases, server }) {
-    const includePrereleases = include_prereleases !== undefined
+  async handle({ type, user, repo }) {
     const json = await this.fetch({
       user,
       repo,
-      schema: includePrereleases ? schema : allVersionsSchema,
-      server,
+      schema: type === 'v' ? allVersionsSchema : schema,
     })
-    const { version } = this.transform({ includePrereleases, json, user, repo })
+    const { version } = this.transform({ type, json })
     return this.constructor.render({ version })
   }
 }
-
-const PackagistVersionRedirector = redirector({
-  category: 'version',
-  route: {
-    base: 'packagist/vpre',
-    pattern: ':user/:repo',
-  },
-  transformPath: ({ user, repo }) => `/packagist/v/${user}/${repo}`,
-  transformQueryParams: params => ({ include_prereleases: null }),
-  dateAdded: new Date('2019-12-15'),
-})
-
-module.exports = { PackagistVersion, PackagistVersionRedirector }

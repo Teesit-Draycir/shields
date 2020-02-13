@@ -49,9 +49,7 @@ describe('BaseJsonService', function() {
 
       expect(sendAndCacheRequest).to.have.been.calledOnceWith(
         'http://example.com/foo.json',
-        {
-          headers: { Accept: 'application/json' },
-        }
+        { headers: { Accept: 'application/json' } }
       )
     })
 

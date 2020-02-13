@@ -60,21 +60,10 @@ t.create('Dev dependency version')
     message: semverRange,
   })
 
-t.create('Prod dependency version')
+t.create('Prod prod dependency version')
   .get('/dependency-version/paulmelnikow/react-boxplot/simple-statistics.json')
   .expectBadge({
     label: 'simple-statistics',
-    message: semverRange,
-  })
-
-t.create('Prod dependency version (monorepo)')
-  .get(
-    `/dependency-version/metabolize/anafanafo/puppeteer.json?filename=${encodeURIComponent(
-      'packages/char-width-table-builder/package.json'
-    )}`
-  )
-  .expectBadge({
-    label: 'puppeteer',
     message: semverRange,
   })
 

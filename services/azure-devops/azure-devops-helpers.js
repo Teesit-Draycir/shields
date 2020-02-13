@@ -11,8 +11,7 @@ const schema = Joi.object({
       isBuildStatus,
       Joi.equal('unknown'),
       Joi.equal('set up now'),
-      Joi.equal('never built'),
-      Joi.equal('never deployed')
+      Joi.equal('never built')
     )
     .required(),
 }).required()

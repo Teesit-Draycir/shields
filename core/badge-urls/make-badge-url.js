@@ -2,7 +2,7 @@
 
 const { URL } = require('url')
 const queryString = require('query-string')
-const { compile } = require('path-to-regexp')
+const pathToRegexp = require('path-to-regexp')
 
 function badgeUrlFromPath({
   baseUrl = '',
@@ -33,10 +33,9 @@ function badgeUrlFromPattern({
   format = '',
   longCache = false,
 }) {
-  const toPath = compile(pattern, {
+  const toPath = pathToRegexp.compile(pattern, {
     strict: true,
     sensitive: true,
-    encode: encodeURIComponent,
   })
 
   const path = toPath(namedParams)

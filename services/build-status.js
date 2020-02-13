@@ -43,12 +43,12 @@ const otherStatuses = [
   'waiting',
 ]
 
-const allStatuses = greenStatuses
-  .concat(orangeStatuses)
-  .concat(redStatuses)
-  .concat(otherStatuses)
-
-const isBuildStatus = Joi.equal(...allStatuses)
+const isBuildStatus = Joi.equal(
+  greenStatuses
+    .concat(orangeStatuses)
+    .concat(redStatuses)
+    .concat(otherStatuses)
+)
 
 function renderBuildStatusBadge({ label, status }) {
   let message

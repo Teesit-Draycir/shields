@@ -10,7 +10,9 @@ const { documentation, transformErrors } = require('./github-helpers')
 const schema = Joi.object({
   data: Joi.object({
     repository: Joi.object({
-      forkCount: nonNegativeInteger,
+      forks: Joi.object({
+        totalCount: nonNegativeInteger,
+      }).required(),
     }).required(),
   }).required(),
 }).required()
@@ -76,7 +78,9 @@ module.exports = class GithubForks extends GithubAuthV4Service {
       query: gql`
         query($user: String!, $repo: String!) {
           repository(owner: $user, name: $repo) {
-            forkCount
+            forks {
+              totalCount
+            }
           }
         }
       `,
@@ -87,7 +91,7 @@ module.exports = class GithubForks extends GithubAuthV4Service {
     return this.constructor.render({
       user,
       repo,
-      forkCount: json.data.repository.forkCount,
+      forkCount: json.data.repository.forks.totalCount,
     })
   }
 }

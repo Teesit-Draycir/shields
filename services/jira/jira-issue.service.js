@@ -1,13 +1,8 @@
 'use strict'
 
 const Joi = require('@hapi/joi')
-const { optionalUrl } = require('../validators')
 const { authConfig } = require('./jira-common')
 const { BaseJsonService } = require('..')
-
-const queryParamSchema = Joi.object({
-  baseUrl: optionalUrl.required(),
-}).required()
 
 const schema = Joi.object({
   fields: Joi.object({
@@ -28,8 +23,9 @@ module.exports = class JiraIssue extends BaseJsonService {
   static get route() {
     return {
       base: 'jira/issue',
-      pattern: ':issueKey',
-      queryParamSchema,
+      // Do not base new services on this route pattern.
+      // See https://github.com/badges/shields/issues/3714
+      pattern: ':protocol(http|https)/:hostAndPath(.+)/:issueKey',
     }
   }
 
@@ -41,11 +37,11 @@ module.exports = class JiraIssue extends BaseJsonService {
     return [
       {
         title: 'JIRA issue',
+        pattern: ':protocol/:hostAndPath/:issueKey',
         namedParams: {
+          protocol: 'https',
+          hostAndPath: 'issues.apache.org/jira',
           issueKey: 'KAFKA-2896',
-        },
-        queryParams: {
-          baseUrl: 'https://issues.apache.org/jira',
         },
         staticPreview: this.render({
           issueKey: 'KAFKA-2896',
@@ -81,11 +77,13 @@ module.exports = class JiraIssue extends BaseJsonService {
     }
   }
 
-  async handle({ issueKey }, { baseUrl }) {
+  async handle({ protocol, hostAndPath, issueKey }) {
     // Atlassian Documentation: https://developer.atlassian.com/cloud/jira/platform/rest/v2/#api-api-2-issue-issueIdOrKey-get
     const json = await this._requestJson({
       schema,
-      url: `${baseUrl}/rest/api/2/issue/${encodeURIComponent(issueKey)}`,
+      url: `${protocol}://${hostAndPath}/rest/api/2/issue/${encodeURIComponent(
+        issueKey
+      )}`,
       options: { auth: this.authHelper.basicAuth },
       errorMessages: { 404: 'issue not found' },
     })

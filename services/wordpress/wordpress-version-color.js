@@ -30,17 +30,11 @@ function getOfferedVersions() {
   })
 }
 
-function toSemver(v) {
-  const parts = v.split('-')
-  if (parts.length > 2) {
-    return v
-  }
-  const version = parts[0]
-  const suffix = parts[1] ? parts[1] : ''
+function toSemver(version) {
   if (version.split('.').length === 2) {
-    return suffix !== '' ? `${version}.0-${suffix}` : `${version}.0`
+    return `${version}.0`
   } else {
-    return v
+    return version
   }
 }
 
@@ -49,8 +43,6 @@ async function versionColorForWordpressVersion(version) {
 
   const latestVersion = toSemver(offeredVersions[0])
   version = toSemver(version)
-  if (!semver.valid(latestVersion)) return 'lightgrey'
-  if (!semver.valid(version)) return 'lightgrey'
 
   if (version === latestVersion || semver.gtr(version, latestVersion)) {
     return 'brightgreen'
@@ -62,7 +54,6 @@ async function versionColorForWordpressVersion(version) {
 }
 
 module.exports = {
-  toSemver,
   getOfferedVersions,
   versionColorForWordpressVersion,
 }

@@ -3,12 +3,12 @@
  * @module
  */
 
+const decamelize = require('decamelize')
 // See available emoji at http://emoji.muan.co/
 const emojic = require('emojic')
 const Joi = require('@hapi/joi')
 const log = require('../server/log')
 const { AuthHelper } = require('./auth-helper')
-const { MetricHelper, MetricNames } = require('./metric-helper')
 const { assertValidCategory } = require('./categories')
 const checkErrorResponse = require('./check-error-response')
 const coalesceBadge = require('./coalesce-badge')
@@ -39,17 +39,14 @@ const defaultBadgeDataSchema = Joi.object({
   namedLogo: Joi.string(),
 }).required()
 
-const optionalStringWhenNamedLogoPresent = Joi.alternatives().conditional(
-  'namedLogo',
-  {
-    is: Joi.string().required(),
-    then: Joi.string(),
-  }
-)
+const optionalStringWhenNamedLogoPrsent = Joi.alternatives().when('namedLogo', {
+  is: Joi.string().required(),
+  then: Joi.string(),
+})
 
 const optionalNumberWhenAnyLogoPresent = Joi.alternatives()
-  .conditional('namedLogo', { is: Joi.string().required(), then: Joi.number() })
-  .conditional('logoSvg', { is: Joi.string().required(), then: Joi.number() })
+  .when('namedLogo', { is: Joi.string().required(), then: Joi.number() })
+  .when('logoSvg', { is: Joi.string().required(), then: Joi.number() })
 
 const serviceDataSchema = Joi.object({
   isError: Joi.boolean(),
@@ -67,7 +64,7 @@ const serviceDataSchema = Joi.object({
   labelColor: Joi.string(),
   namedLogo: Joi.string(),
   logoSvg: Joi.string(),
-  logoColor: optionalStringWhenNamedLogoPresent,
+  logoColor: optionalStringWhenNamedLogoPrsent,
   logoWidth: optionalNumberWhenAnyLogoPresent,
   logoPosition: optionalNumberWhenAnyLogoPresent,
   cacheSeconds: Joi.number()
@@ -214,41 +211,18 @@ class BaseService {
     return result
   }
 
-  constructor(
-    { sendAndCacheRequest, authHelper, metricHelper },
-    { handleInternalErrors }
-  ) {
+  constructor({ sendAndCacheRequest, authHelper }, { handleInternalErrors }) {
     this._requestFetcher = sendAndCacheRequest
     this.authHelper = authHelper
     this._handleInternalErrors = handleInternalErrors
-    this._metricHelper = metricHelper
   }
 
   async _request({ url, options = {}, errorMessages = {} }) {
     const logTrace = (...args) => trace.logTrace('fetch', ...args)
     logTrace(emojic.bowAndArrow, 'Request', url, '\n', options)
     const { res, buffer } = await this._requestFetcher(url, options)
-    await this._meterResponse(res, buffer)
     logTrace(emojic.dart, 'Response status code', res.statusCode)
     return checkErrorResponse(errorMessages)({ buffer, res })
-  }
-
-  static get enabledMetrics() {
-    return []
-  }
-
-  static isMetricEnabled(metricName) {
-    return this.enabledMetrics.includes(metricName)
-  }
-
-  async _meterResponse(res, buffer) {
-    if (
-      this._metricHelper &&
-      this.constructor.isMetricEnabled(MetricNames.SERVICE_RESPONSE_SIZE) &&
-      res.statusCode === 200
-    ) {
-      this._metricHelper.noteServiceResponseSize(buffer.length)
-    }
   }
 
   static _validate(
@@ -288,12 +262,6 @@ class BaseService {
    */
   async handle(namedParams, queryParams) {
     throw new Error(`Handler not implemented for ${this.constructor.name}`)
-  }
-
-  // Making this an instance method ensures debuggability.
-  // https://github.com/badges/shields/issues/3784
-  _validateServiceData(serviceData) {
-    Joi.assert(serviceData, serviceDataSchema)
   }
 
   _handleError(error) {
@@ -408,7 +376,7 @@ class BaseService {
           namedParams,
           transformedQueryParams
         )
-        serviceInstance._validateServiceData(serviceData)
+        Joi.assert(serviceData, serviceDataSchema)
       } catch (error) {
         serviceError = error
       }
@@ -423,17 +391,27 @@ class BaseService {
     return serviceData
   }
 
+  static _createServiceRequestCounter({ requestCounter }) {
+    if (requestCounter) {
+      const { category, serviceFamily, name } = this
+      const service = decamelize(name)
+      return requestCounter.labels(category, serviceFamily, service)
+    } else {
+      // When metrics are disabled, return a mock counter.
+      return { inc: () => {} }
+    }
+  }
+
   static register(
-    { camp, handleRequest, githubApiProvider, metricInstance },
+    { camp, handleRequest, githubApiProvider, requestCounter },
     serviceConfig
   ) {
     const { cacheHeaders: cacheHeaderConfig, fetchLimitBytes } = serviceConfig
     const { regex, captureNames } = prepareRoute(this.route)
     const queryParams = getQueryParamNames(this.route)
 
-    const metricHelper = MetricHelper.create({
-      metricInstance,
-      ServiceClass: this,
+    const serviceRequestCounter = this._createServiceRequestCounter({
+      requestCounter,
     })
 
     camp.route(
@@ -441,15 +419,12 @@ class BaseService {
       handleRequest(cacheHeaderConfig, {
         queryParams,
         handler: async (queryParams, match, sendBadge, request) => {
-          const metricHandle = metricHelper.startRequest()
-
           const namedParams = namedParamsForMatch(captureNames, match, this)
           const serviceData = await this.invoke(
             {
               sendAndCacheRequest: request.asPromise,
               sendAndCacheRequestWithCallbacks: request,
               githubApiProvider,
-              metricHelper,
             },
             serviceConfig,
             namedParams,
@@ -466,7 +441,7 @@ class BaseService {
           const format = (match.slice(-1)[0] || '.svg').replace(/^\./, '')
           sendBadge(format, badgeData)
 
-          metricHandle.noteResponseSent()
+          serviceRequestCounter.inc()
         },
         cacheLength: this._cacheLength,
         fetchLimitBytes,

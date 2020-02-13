@@ -2,12 +2,7 @@
 
 const Joi = require('@hapi/joi')
 const { metric } = require('../text-formatters')
-const { optionalUrl } = require('../validators')
 const { BaseService, BaseJsonService, NotFound } = require('..')
-
-const queryParamSchema = Joi.object({
-  url: optionalUrl.required(),
-}).required()
 
 class TwitterUrl extends BaseService {
   static get category() {
@@ -16,9 +11,10 @@ class TwitterUrl extends BaseService {
 
   static get route() {
     return {
-      base: 'twitter',
-      pattern: 'url',
-      queryParamSchema,
+      base: 'twitter/url',
+      // Do not base new services on this route pattern.
+      // See https://github.com/badges/shields/issues/3714
+      pattern: ':protocol(https|http)/:hostAndPath+',
     }
   }
 
@@ -26,9 +22,9 @@ class TwitterUrl extends BaseService {
     return [
       {
         title: 'Twitter URL',
-        namedParams: {},
-        queryParams: {
-          url: 'https://shields.io',
+        namedParams: {
+          protocol: 'http',
+          hostAndPath: 'shields.io',
         },
         // hard code the static preview
         // because link[] is not allowed in examples
@@ -47,8 +43,8 @@ class TwitterUrl extends BaseService {
     }
   }
 
-  async handle(_routeParams, { url }) {
-    const page = encodeURIComponent(`${url}`)
+  async handle({ protocol, hostAndPath }) {
+    const page = encodeURIComponent(`${protocol}://${hostAndPath}`)
     return {
       label: 'tweet',
       message: '',
@@ -106,10 +102,8 @@ class TwitterFollow extends BaseJsonService {
       message: metric(followers),
       style: 'social',
       link: [
-        `https://twitter.com/intent/follow?screen_name=${encodeURIComponent(
-          user
-        )}`,
-        `https://twitter.com/${encodeURIComponent(user)}/followers`,
+        `https://twitter.com/intent/follow?screen_name=${user}`,
+        `https://twitter.com/${user}/followers`,
       ],
     }
   }
@@ -124,7 +118,7 @@ class TwitterFollow extends BaseJsonService {
 
   async handle({ user }) {
     const data = await this.fetch({ user })
-    if (!Array.isArray(data) || data.length === 0) {
+    if (data.length === 0) {
       throw new NotFound({ prettyMessage: 'invalid user' })
     }
     return this.constructor.render({ user, followers: data[0].followers_count })

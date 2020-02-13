@@ -3,11 +3,11 @@
 const Joi = require('@hapi/joi')
 
 // This should be kept in sync with the schema in
-// `frontend/lib/service-definitions/index.ts`.
+// `frontend/lib/service-definitions/service-definition-prop-types.js`.
 
 const arrayOfStrings = Joi.array()
   .items(Joi.string())
-  .min(0)
+  .allow([])
   .required()
 
 const objectOfKeyValues = Joi.object()
@@ -66,7 +66,6 @@ const serviceDefinitionExport = Joi.object({
       Joi.object({
         id: Joi.string().required(),
         name: Joi.string().required(),
-        keywords: arrayOfStrings,
       })
     )
     .required(),

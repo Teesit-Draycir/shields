@@ -38,7 +38,6 @@ const bronzeMockResponse = createMockResponse({
 const noMedalMockResponse = createMockResponse({
   grade: 'none',
 })
-const noGradeMockResponse = createMockResponse({})
 const criticalViolation = createMockResponse({
   violations: [
     {
@@ -107,7 +106,6 @@ module.exports = {
   silverMockResponse,
   bronzeMockResponse,
   noMedalMockResponse,
-  noGradeMockResponse,
   criticalViolation,
   majorViolation,
   minorViolation,

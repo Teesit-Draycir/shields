@@ -5,18 +5,18 @@ const { isIntegerPercentage } = require('../test-validators')
 const { sprintId, sprintQueryString } = require('./jira-test-helpers')
 
 t.create('unknown sprint')
-  .get('/abc.json?baseUrl=https://jira.spring.io')
+  .get('/https/jira.spring.io/abc.json')
   .expectBadge({ label: 'jira', message: 'sprint not found' })
 
 t.create('known sprint')
-  .get('/94.json?baseUrl=https://jira.spring.io')
+  .get('/https/jira.spring.io/94.json')
   .expectBadge({
     label: 'completion',
     message: isIntegerPercentage,
   })
 
 t.create('100% completion')
-  .get(`/${sprintId}.json?baseUrl=http://issues.apache.org/jira`)
+  .get(`/http/issues.apache.org/jira/${sprintId}.json`)
   .intercept(nock =>
     nock('http://issues.apache.org/jira/rest/api/2')
       .get('/search')
@@ -48,7 +48,7 @@ t.create('100% completion')
   })
 
 t.create('0% completion')
-  .get(`/${sprintId}.json?baseUrl=http://issues.apache.org/jira`)
+  .get(`/http/issues.apache.org/jira/${sprintId}.json`)
   .intercept(nock =>
     nock('http://issues.apache.org/jira/rest/api/2')
       .get('/search')
@@ -73,7 +73,7 @@ t.create('0% completion')
   })
 
 t.create('no issues in sprint')
-  .get(`/${sprintId}.json?baseUrl=http://issues.apache.org/jira`)
+  .get(`/http/issues.apache.org/jira/${sprintId}.json`)
   .intercept(nock =>
     nock('http://issues.apache.org/jira/rest/api/2')
       .get('/search')
@@ -90,7 +90,7 @@ t.create('no issues in sprint')
   })
 
 t.create('issue with null resolution value')
-  .get(`/${sprintId}.json?baseUrl=https://jira.spring.io:8080`)
+  .get(`/https/jira.spring.io:8080/${sprintId}.json`)
   .intercept(nock =>
     nock('https://jira.spring.io:8080/rest/api/2')
       .get('/search')

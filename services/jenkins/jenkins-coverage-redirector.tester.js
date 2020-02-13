@@ -8,50 +8,25 @@ const t = (module.exports = new ServiceTester({
   pathPrefix: '/jenkins',
 }))
 
-t.create('old Jacoco prefix + job url in path')
+t.create('Jacoco')
   .get(
-    '/j/https/wso2.org/jenkins/view/All%20Builds/job/sonar/job/sonar-carbon-dashboards.svg'
+    '/j/https/wso2.org/jenkins/view/All%20Builds/job/sonar/job/sonar-carbon-dashboards.svg',
+    {
+      followRedirect: false,
+    }
   )
-  .expectRedirect(
-    `/jenkins/coverage/jacoco.svg?jobUrl=${encodeURIComponent(
-      'https://wso2.org/jenkins/view/All Builds/job/sonar/job/sonar-carbon-dashboards'
-    )}`
+  .expectStatus(301)
+  .expectHeader(
+    'Location',
+    '/jenkins/coverage/jacoco/https/wso2.org/jenkins/view/All Builds/job/sonar/job/sonar-carbon-dashboards.svg'
   )
 
-t.create('new Jacoco prefix + job url in path')
-  .get(
-    '/coverage/jacoco/https/wso2.org/jenkins/view/All%20Builds/job/sonar/job/sonar-carbon-dashboards.svg'
-  )
-  .expectRedirect(
-    `/jenkins/coverage/jacoco.svg?jobUrl=${encodeURIComponent(
-      'https://wso2.org/jenkins/view/All Builds/job/sonar/job/sonar-carbon-dashboards'
-    )}`
-  )
-
-t.create('old Cobertura prefix + job url in path')
-  .get('/c/https/jenkins.sqlalchemy.org/job/alembic_coverage.svg')
-  .expectRedirect(
-    `/jenkins/coverage/cobertura.svg?jobUrl=${encodeURIComponent(
-      'https://jenkins.sqlalchemy.org/job/alembic_coverage'
-    )}`
-  )
-
-t.create('new Cobertura prefix + job url in path')
-  .get(
-    '/coverage/cobertura/https/jenkins.sqlalchemy.org/job/alembic_coverage.svg'
-  )
-  .expectRedirect(
-    `/jenkins/coverage/cobertura.svg?jobUrl=${encodeURIComponent(
-      'https://jenkins.sqlalchemy.org/job/alembic_coverage'
-    )}`
-  )
-
-t.create('api prefix + job url in path')
-  .get(
-    '/coverage/api/https/jenkins.library.illinois.edu/job/OpenSourceProjects/job/Speedwagon/job/master.svg'
-  )
-  .expectRedirect(
-    `/jenkins/coverage/api.svg?jobUrl=${encodeURIComponent(
-      'https://jenkins.library.illinois.edu/job/OpenSourceProjects/job/Speedwagon/job/master'
-    )}`
+t.create('Cobertura')
+  .get('/c/https/jenkins.sqlalchemy.org/job/alembic_coverage.svg', {
+    followRedirect: false,
+  })
+  .expectStatus(301)
+  .expectHeader(
+    'Location',
+    '/jenkins/coverage/cobertura/https/jenkins.sqlalchemy.org/job/alembic_coverage.svg'
   )

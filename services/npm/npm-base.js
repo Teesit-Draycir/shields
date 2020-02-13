@@ -25,10 +25,6 @@ const packageDataSchema = Joi.object({
     .items(Joi.object({}))
     .required(),
   types: Joi.string(),
-  // `typings` is an alias for `types` and often used
-  // https://www.typescriptlang.org/docs/handbook/declaration-files/publishing.html#including-declarations-in-your-npm-package
-  // > Note that the "typings" field is synonymous with "types"
-  typings: Joi.string(),
   files: Joi.array()
     .items(Joi.string())
     .default([]),

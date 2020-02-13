@@ -2,12 +2,7 @@
 
 const Joi = require('@hapi/joi')
 const { isVPlusDottedVersionAtLeastOne } = require('../test-validators')
-const { ServiceTester } = require('../tester')
-const t = (module.exports = new ServiceTester({
-  id: 'BowerVersion',
-  title: 'Bower Version',
-  pathPrefix: '/bower',
-}))
+const t = (module.exports = require('../tester').createServiceTester())
 
 const isBowerPrereleaseVersion = Joi.string().regex(
   /^v\d+(\.\d+)?(\.\d+)?(-?[.\w\d])+?$/
@@ -23,7 +18,7 @@ t.create('version')
 
 t.create('pre version') // e.g. bower|v0.2.5-alpha-rc-pre
   .timeout(10000)
-  .get('/v/bootstrap.json?include_prereleases')
+  .get('/vpre/bootstrap.json')
   .expectBadge({
     label: 'bower',
     message: isBowerPrereleaseVersion,
@@ -36,7 +31,7 @@ t.create('Version for Invalid Package')
 
 t.create('Pre Version for Invalid Package')
   .timeout(10000)
-  .get('/v/it-is-a-invalid-package-should-error.json?include_prereleases')
+  .get('/vpre/it-is-a-invalid-package-should-error.json')
   .expectBadge({ label: 'bower', message: 'package not found' })
 
 t.create('Version label should be `no releases` if no stable version')
@@ -49,14 +44,10 @@ t.create('Version label should be `no releases` if no stable version')
   .expectBadge({ label: 'bower', message: 'no releases' })
 
 t.create('Version label should be `no releases` if no pre-release')
-  .get('/v/bootstrap.json?include_prereleases')
+  .get('/vpre/bootstrap.json')
   .intercept(nock =>
     nock('https://libraries.io')
       .get('/api/bower/bootstrap')
       .reply(200, { normalized_licenses: [], latest_release_number: null })
   )
   .expectBadge({ label: 'bower', message: 'no releases' })
-
-t.create('Version (legacy redirect: vpre)')
-  .get('/vpre/bootstrap.svg')
-  .expectRedirect('/bower/v/bootstrap.svg?include_prereleases')

@@ -1,13 +1,8 @@
 'use strict'
 
 const Joi = require('@hapi/joi')
-const { optionalUrl } = require('../validators')
 const { authConfig } = require('./jira-common')
 const { BaseJsonService } = require('..')
-
-const queryParamSchema = Joi.object({
-  baseUrl: optionalUrl.required(),
-}).required()
 
 const schema = Joi.object({
   total: Joi.number(),
@@ -40,8 +35,9 @@ module.exports = class JiraSprint extends BaseJsonService {
   static get route() {
     return {
       base: 'jira/sprint',
-      pattern: ':sprintId',
-      queryParamSchema,
+      // Do not base new services on this route pattern.
+      // See https://github.com/badges/shields/issues/3714
+      pattern: ':protocol(http|https)/:hostAndPath(.+)/:sprintId',
     }
   }
 
@@ -53,17 +49,18 @@ module.exports = class JiraSprint extends BaseJsonService {
     return [
       {
         title: 'JIRA sprint completion',
+        pattern: ':protocol/:hostAndPath/:sprintId',
         namedParams: {
+          protocol: 'https',
+          hostAndPath: 'jira.spring.io',
           sprintId: '94',
-        },
-        queryParams: {
-          baseUrl: 'https://jira.spring.io',
         },
         staticPreview: this.render({
           numCompletedIssues: 27,
           numTotalIssues: 28,
         }),
         documentation,
+        keywords: ['issues'],
       },
     ]
   }
@@ -89,12 +86,12 @@ module.exports = class JiraSprint extends BaseJsonService {
     }
   }
 
-  async handle({ sprintId }, { baseUrl }) {
+  async handle({ protocol, hostAndPath, sprintId }) {
     // Atlassian Documentation: https://developer.atlassian.com/cloud/jira/platform/rest/v2/#api-group-Search
     // There are other sprint-specific APIs but those require authentication. The search API
     // allows us to get the needed data without being forced to authenticate.
     const json = await this._requestJson({
-      url: `${baseUrl}/rest/api/2/search`,
+      url: `${protocol}://${hostAndPath}/rest/api/2/search`,
       schema,
       options: {
         qs: {

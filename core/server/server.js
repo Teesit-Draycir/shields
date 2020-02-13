@@ -28,10 +28,7 @@ const requiredUrl = optionalUrl.required()
 
 const publicConfigSchema = Joi.object({
   bind: {
-    port: Joi.alternatives().try(
-      Joi.number().port(),
-      Joi.string().pattern(/^\\\\\.\\pipe\\.+$/)
-    ),
+    port: Joi.number().port(),
     address: Joi.alternatives().try(
       Joi.string()
         .ip()
@@ -108,8 +105,6 @@ const privateConfigSchema = Joi.object({
   sl_insight_userUuid: Joi.string(),
   sl_insight_apiToken: Joi.string(),
   sonarqube_token: Joi.string(),
-  twitch_client_id: Joi.string(),
-  twitch_client_secret: Joi.string(),
   wheelmap_token: Joi.string(),
 }).required()
 
@@ -153,7 +148,7 @@ class Server {
       private: privateConfig,
     })
     if (publicConfig.metrics.prometheus.enabled) {
-      this.metricInstance = new PrometheusMetrics()
+      this.metrics = new PrometheusMetrics()
     }
   }
 
@@ -190,11 +185,7 @@ class Server {
 
     camp.route(/\.(gif|jpg)$/, (query, match, end, request) => {
       const [, format] = match
-      makeSend(
-        'svg',
-        request.res,
-        end
-      )(
+      makeSend('svg', request.res, end)(
         makeBadge({
           text: ['410', `${format} no longer available`],
           color: 'lightgray',
@@ -205,11 +196,7 @@ class Server {
 
     if (!rasterUrl) {
       camp.route(/\.png$/, (query, match, end, request) => {
-        makeSend(
-          'svg',
-          request.res,
-          end
-        )(
+        makeSend('svg', request.res, end)(
           makeBadge({
             text: ['404', 'raster badges not available'],
             color: 'lightgray',
@@ -223,11 +210,7 @@ class Server {
       const [, extension] = match
       const format = (extension || '.svg').replace(/^\./, '')
 
-      makeSend(
-        format,
-        request.res,
-        end
-      )(
+      makeSend(format, request.res, end)(
         makeBadge({
           text: ['404', 'badge not found'],
           color: 'red',
@@ -280,12 +263,13 @@ class Server {
    * load each service and register a Scoutcamp route for each service.
    */
   registerServices() {
-    const { config, camp, metricInstance } = this
+    const { config, camp } = this
     const { apiProvider: githubApiProvider } = this.githubConstellation
+    const { requestCounter } = this.metrics || {}
 
     loadServiceClasses().forEach(serviceClass =>
       serviceClass.register(
-        { camp, handleRequest, githubApiProvider, metricInstance },
+        { camp, handleRequest, githubApiProvider, requestCounter },
         {
           handleInternalErrors: config.public.handleInternalErrors,
           cacheHeaders: config.public.cacheHeaders,
@@ -323,16 +307,12 @@ class Server {
       key,
     }))
 
-    const { metricInstance } = this
-    this.cleanupMonitor = sysMonitor.setRoutes(
-      { rateLimit },
-      { server: camp, metricInstance }
-    )
+    this.cleanupMonitor = sysMonitor.setRoutes({ rateLimit }, camp)
 
-    const { githubConstellation } = this
+    const { githubConstellation, metrics } = this
     githubConstellation.initialize(camp)
-    if (metricInstance) {
-      metricInstance.initialize(camp)
+    if (metrics) {
+      metrics.initialize(camp)
     }
 
     const { apiProvider: githubApiProvider } = this.githubConstellation
@@ -375,8 +355,8 @@ class Server {
       this.githubConstellation = undefined
     }
 
-    if (this.metricInstance) {
-      this.metricInstance.stop()
+    if (this.metrics) {
+      this.metrics.stop()
     }
   }
 }
