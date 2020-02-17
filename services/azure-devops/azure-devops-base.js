@@ -100,7 +100,7 @@ module.exports = class AzureDevOpsBase extends BaseJsonService {
     project,
     definitionId,
     branch,
-    headers,
+    auth,
     errorMessages
   ) {
     // Microsoft documentation: https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-5.0
@@ -112,7 +112,7 @@ module.exports = class AzureDevOpsBase extends BaseJsonService {
         statusFilter: 'completed',
         'api-version': '5.0-preview.4',
       },
-      headers,
+      auth,
     }
 
     if (branch) {
@@ -138,7 +138,7 @@ module.exports = class AzureDevOpsBase extends BaseJsonService {
     project,
     definitionId,
     definitionEnvironmentId,
-    headers,
+    auth,
     errorMessages
   ) {
     // Microsoft documentation: https://docs.microsoft.com/en-us/rest/api/azure/devops/build/builds/list?view=azure-devops-rest-5.0
@@ -150,7 +150,7 @@ module.exports = class AzureDevOpsBase extends BaseJsonService {
         definitionEnvironmentId,
         'api-version': '5.0',
       },
-      headers,
+      auth,
     }
 
     //if (branch) {

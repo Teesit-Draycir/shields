@@ -3,7 +3,7 @@
 const { addv } = require('../text-formatters')
 const { version: versionColor } = require('../color-formatters')
 const AzureDevOpsBase = require('./azure-devops-base')
-const { keywords, getHeaders } = require('./azure-devops-helpers')
+const { keywords } = require('./azure-devops-helpers')
 
 const documentation = `
 <p>
@@ -74,7 +74,7 @@ module.exports = class AzureDevOpsVersion extends AzureDevOpsBase {
   }
 
   async handle({ organization, projectId, definitionId, environmentId }) {
-    const headers = getHeaders()
+    const auth = this.authHelper.basicAuth
     const errorMessages = {
       404: 'release pipeline not found',
     }
@@ -84,7 +84,7 @@ module.exports = class AzureDevOpsVersion extends AzureDevOpsBase {
       projectId,
       definitionId,
       environmentId,
-      headers,
+      auth,
       errorMessages
     )
 
