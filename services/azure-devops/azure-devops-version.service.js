@@ -1,7 +1,7 @@
 'use strict'
 
-const { addv } = require('../../lib/text-formatters')
-const { version: versionColor } = require('../../lib/color-formatters')
+const { addv } = require('../text-formatters')
+const { version: versionColor } = require('../color-formatters')
 const AzureDevOpsBase = require('./azure-devops-base')
 const { keywords, getHeaders } = require('./azure-devops-helpers')
 
